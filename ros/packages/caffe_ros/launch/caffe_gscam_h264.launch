@@ -1,0 +1,33 @@
+<launch>
+    <arg name="prototxt_path" />
+    <arg name="model_path" />
+    <arg name="input_layer"  default="data" />
+    <arg name="output_layer" default="prob" />
+    <arg name="use_fp16"     default="true" />
+    <arg name="mean"         default="0" />
+    <arg name="debug_mode"   default="false" />
+
+    <arg name="device"     default="/dev/video0" />
+    <arg name="img_width"  default="640" />
+    <arg name="img_height" default="360" />
+    <!-- 
+    Check wifi settings (ifconfig) to get proper IP address for the adapter that is used to connect to TX-1.
+    -->
+    <arg name="host_ip"    default="10.42.0.85" />
+
+    <!-- Start the GSCAM node -->
+    <node pkg="gscam" type="gscam" name="gscam">
+        <!-- Use 2 sinks (UDP H.264 streaming + ROS topic) -->
+        <env name="GSCAM_CONFIG" value="v4l2src device=$(arg device) ! tee name=t ! queue ! videoconvert ! omxh264enc ! video/x-h264, stream-format=byte-stream ! h264parse ! rtph264pay config-interval=1 ! udpsink host=$(arg host_ip) port=6000 t. ! queue ! video/x-raw, width=$(arg img_width), height=$(arg img_height) ! videoconvert" />
+    </node>
+    <!-- Start the caffe_ros node -->
+    <node pkg="caffe_ros" type="caffe_ros_node" name="caffe_ros">
+        <param name="prototxt_path" value="$(arg prototxt_path)" />
+        <param name="model_path"    value="$(arg model_path)" />
+        <param name="input_layer"   value="$(arg input_layer)" />
+        <param name="output_layer"  value="$(arg output_layer)" />
+        <param name="use_fp16"      value="$(arg use_fp16)" />
+        <param name="mean"          value="$(arg mean)" />
+        <param name="debug_mode"    value="$(arg debug_mode)" />
+    </node>
+</launch>

@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<package>
+  <name>caffe_ros</name>
+  <version>0.1.0</version>
+  <description>ROS wrapper for Caffe inference API with TensorRT.</description>
+  <maintainer email="akamenev@nvidia.com">Alexey Kamenev</maintainer>
+  <author email="akamenev@nvidia.com">Alexey Kamenev</author> 
+  <license>BSD</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <build_depend>roscpp</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>cuda-toolkit-8-0</build_depend>
+  <!--<build_depend>lib-gie-dev</build_depend>-->
+  
+  <run_depend>roscpp</run_depend>
+  <run_depend>std_msgs</run_depend>
+
+  <test_depend>gtest</test_depend>
+  
+  <export>
+  </export>
+</package>

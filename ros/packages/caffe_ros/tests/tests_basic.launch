@@ -1,0 +1,78 @@
+<launch>
+    <!--
+    Run the test using the following command:
+    rostest caffe_ros tests_basic.launch
+    Use parameters to specify values for the arguments, for example:
+
+export REDTAIL_TEST_DIR=/data/src/redtail/ros/packages/caffe_ros/tests/data
+export REDTAIL_MODEL_DIR=/data/src/redtail/models/pretrained
+rostest caffe_ros tests_basic.launch test_data_dir:=$REDTAIL_TEST_DIR \
+    trail_prototxt_path:=$REDTAIL_MODEL_DIR/TrailNet_SResNet-18.prototxt trail_model_path:=$REDTAIL_MODEL_DIR/TrailNet_SResNet-18.caffemodel \
+    object_prototxt_path:=$REDTAIL_MODEL_DIR/yolo-relu.prototxt object_model_path:=$REDTAIL_MODEL_DIR/yolo-relu.caffemodel
+
+     -->
+    <arg name="test_data_dir" />
+    <arg name="trail_prototxt_path" default="/data/src/redtail/models/pretrained/TrailNet_SResNet-18.prototxt" />
+    <arg name="trail_model_path"    default="/data/src/redtail/models/pretrained/TrailNet_SResNet-18.caffemodel" />
+    <arg name="trail_output_layer"  default="out" />
+
+    <arg name="object_prototxt_path" default="/home/ubuntu/models/yolo-relu.prototxt" />
+    <arg name="object_model_path"    default="/home/ubuntu/models/yolo-relu.caffemodel" />
+    <arg name="object_output_layer"  default="fc25" />
+    
+    <node pkg="caffe_ros" type="caffe_ros_node" name="trails_dnn">
+        <param name="camera_topic"  value="/camera_trails/image_raw" />
+        <param name="prototxt_path" value="$(arg trail_prototxt_path)" />
+        <param name="model_path"    value="$(arg trail_model_path)" />
+        <param name="input_layer"   value="data" />
+        <param name="output_layer"  value="$(arg trail_output_layer)" />
+        <param name="use_fp16"      value="false" />
+        <param name="use_cached_model" value="false" />
+    </node>
+
+    <node pkg="caffe_ros" type="caffe_ros_node" name="trails_dnn_fp16">
+        <param name="camera_topic"  value="/camera_trails_fp16/image_raw" />
+        <param name="prototxt_path" value="$(arg trail_prototxt_path)" />
+        <param name="model_path"    value="$(arg trail_model_path)" />
+        <param name="input_layer"   value="data" />
+        <param name="output_layer"  value="$(arg trail_output_layer)" />
+        <param name="use_fp16"      value="true" />
+        <param name="use_cached_model" value="false" />
+    </node>
+
+    <node pkg="caffe_ros" type="caffe_ros_node" name="object_dnn">
+        <param name="camera_topic"  value="/camera_object/image_raw" />
+        <param name="prototxt_path" value="$(arg object_prototxt_path)" />
+        <param name="model_path"    value="$(arg object_model_path)" />
+        <param name="input_layer"   value="data" />
+        <param name="output_layer"  value="$(arg object_output_layer)" />
+        <param name="inp_scale"     value="0.00390625" />
+        <param name="inp_fmt"       value="RGB" />
+        <param name="post_proc"     value="YOLO" />
+        <param name="obj_det_threshold" value="0.2" />
+        <param name="iou_threshold"     value="0.2" />
+        <param name="use_fp16"      value="false" />
+        <param name="max_rate_hz"   value="1" />
+        <param name="use_cached_model" value="false" />
+    </node>
+
+    <node pkg="caffe_ros" type="caffe_ros_node" name="object_dnn_fp16">
+        <param name="camera_topic"  value="/camera_object_fp16/image_raw" />
+        <param name="prototxt_path" value="$(arg object_prototxt_path)" />
+        <param name="model_path"    value="$(arg object_model_path)" />
+        <param name="input_layer"   value="data" />
+        <param name="output_layer"  value="$(arg object_output_layer)" />
+        <param name="inp_scale"     value="0.00390625" />
+        <param name="inp_fmt"       value="RGB" />
+        <param name="post_proc"     value="YOLO" />
+        <param name="obj_det_threshold" value="0.2" />
+        <param name="iou_threshold"     value="0.2" />
+        <param name="use_fp16"      value="true" />
+        <param name="max_rate_hz"   value="1" />
+        <param name="use_cached_model" value="false" />
+    </node>
+    
+    <test pkg="caffe_ros" test-name="CaffeRosTests" type="caffe_ros_tests" time-limit="300.0">
+        <param name="test_data_dir" value="$(arg test_data_dir)" />
+    </test>
+</launch>

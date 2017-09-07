@@ -1,0 +1,72 @@
+<launch>
+    <arg name="trail_prototxt_path" default="/home/nvidia/redtail/models/pretrained/TrailNet_SResNet-18.prototxt" />
+    <arg name="trail_model_path"    default="/home/nvidia/redtail/models/pretrained/TrailNet_SResNet-18.caffemodel" />
+    <arg name="trail_output_layer"  default="out" />
+    <arg name="trail_use_fp16"      default="true" />
+    <arg name="trail_rate_hz"       default="30" />
+    
+    <arg name="object_prototxt_path" default="/home/nvidia/redtail/models/pretrained/yolo-relu.prototxt" />
+    <arg name="object_model_path"    default="/home/nvidia/redtail/models/pretrained/yolo-relu.caffemodel" />
+    <arg name="object_output_layer"  default="fc25" />
+    <arg name="object_use_fp16"      default="true" />
+    <arg name="object_rate_hz"       default="1" />
+    <arg name="obj_det_threshold"    default="0.2" />
+
+    <!-- 
+    Check wifi settings (ifconfig) to get proper IP address for the adapter that is used to connect to TX-2.
+    -->
+    <arg name="host_ip" default="10.42.0.85" />
+
+	<!-- MAVROS settings -->
+    <arg name="fcu_url"       default="/dev/ttyTHS1:921600" />
+	<arg name="gcs_url"       default="udp://@$(arg host_ip)" />
+	<arg name="tgt_system"    default="1" />
+	<arg name="tgt_component" default="1" />
+	<arg name="log_output"    default="screen" />
+
+    <!-- Camera (gscam) settings -->
+    <arg name="device"     default="/dev/video0" />
+    <arg name="img_width"  default="640" />
+    <arg name="img_height" default="360" />
+
+    <!-- Start the GSCAM node -->
+    <node pkg="gscam" type="gscam" name="gscam">
+        <!-- Use 2 sinks (UDP H.265 streaming + ROS topic) -->
+        <env name="GSCAM_CONFIG" value="v4l2src device=$(arg device) ! tee name=t ! queue ! videoconvert ! omxh265enc ! video/x-h265, stream-format=byte-stream ! h265parse ! rtph265pay config-interval=1 ! udpsink host=$(arg host_ip) port=6000 t. ! queue ! video/x-raw, width=$(arg img_width), height=$(arg img_height) ! videoconvert" />
+    </node>
+
+    <!-- Start the Trails caffe_ros node -->
+    <node pkg="caffe_ros" type="caffe_ros_node" name="trails_dnn">
+        <param name="prototxt_path" value="$(arg trail_prototxt_path)" />
+        <param name="model_path"    value="$(arg trail_model_path)" />
+        <param name="output_layer"  value="$(arg trail_output_layer)" />
+        <param name="use_fp16"      value="$(arg trail_use_fp16)" />
+        <param name="max_rate_hz"   value="$(arg trail_rate_hz)" />
+    </node>
+
+    <!-- Start the YOLO caffe_ros node -->
+    <node pkg="caffe_ros" type="caffe_ros_node" name="object_dnn">
+        <param name="prototxt_path" value="$(arg object_prototxt_path)" />
+        <param name="model_path"    value="$(arg object_model_path)" />
+        <param name="output_layer"  value="$(arg object_output_layer)" />
+        <param name="inp_scale"     value="0.00390625" />
+        <param name="inp_fmt"       value="RGB" />
+        <param name="post_proc"     value="YOLO" />
+        <param name="obj_det_threshold" value="$(arg obj_det_threshold)" />
+        <param name="iou_threshold"     value="0.2" />
+        <param name="use_fp16"      value="$(arg object_use_fp16)" />
+        <param name="max_rate_hz"   value="$(arg object_rate_hz)" />
+    </node>
+    
+    <include file="$(find mavros)/launch/node.launch">
+        <arg name="pluginlists_yaml" value="$(find mavros)/launch/px4_pluginlists.yaml" />
+        <arg name="config_yaml"      value="$(find mavros)/launch/px4_config.yaml" />
+
+        <arg name="fcu_url"       value="$(arg fcu_url)" />
+        <arg name="gcs_url"       value="$(arg gcs_url)" />
+        <arg name="tgt_system"    value="$(arg tgt_system)" />
+        <arg name="tgt_component" value="$(arg tgt_component)" />
+        <!--<arg name="log_output" value="$(arg log_output)" />-->
+    </include>
+    
+</launch>

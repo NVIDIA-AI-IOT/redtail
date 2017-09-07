@@ -1,0 +1,46 @@
+<launch>
+    <arg name="prototxt_path" />
+    <arg name="model_path" />
+    <arg name="input_layer"  default="data" />
+    <arg name="output_layer" default="softmax" />
+    <arg name="use_fp16"     default="true" />
+    <arg name="mean"         default="0" />
+    <arg name="debug_mode"   default="false" />
+
+    <arg name="device"       default="/dev/video0" />
+    <arg name="img_width"    default="640" />
+    <arg name="img_height"   default="360" />
+    <arg name="host_ip"      default="10.42.0.85" />
+    <arg name="gscam_config" default="caffe_gscam.launch" />
+
+	<arg name="fcu_url"       default="/dev/ttyTHS1:921600" />
+	<arg name="gcs_url"       default="udp://@10.42.0.85" />
+	<arg name="tgt_system"    default="1" />
+	<arg name="tgt_component" default="1" />
+	<arg name="log_output"    default="screen" />
+
+    <include file="$(find caffe_ros)/launch/$(arg gscam_config)">
+        <arg name="prototxt_path" value="$(arg prototxt_path)" />
+        <arg name="model_path"    value="$(arg model_path)" />
+        <arg name="input_layer"   value="$(arg input_layer)" />
+        <arg name="output_layer"  value="$(arg output_layer)" />
+        <arg name="use_fp16"      value="$(arg use_fp16)" />
+        <arg name="mean"          value="$(arg mean)" />
+        <arg name="debug_mode"    value="$(arg debug_mode)" />
+        <arg name="device"        value="$(arg device)" />
+        <arg name="img_width"     value="$(arg img_width)" />
+        <arg name="img_height"    value="$(arg img_height)" />
+        <arg name="host_ip"       value="$(arg host_ip)" />
+    </include>
+
+    <include file="$(find mavros)/launch/node.launch">
+        <arg name="pluginlists_yaml" value="$(find mavros)/launch/px4_pluginlists.yaml" />
+        <arg name="config_yaml"      value="$(find mavros)/launch/px4_config.yaml" />
+
+        <arg name="fcu_url"       value="$(arg fcu_url)" />
+        <arg name="gcs_url"       value="$(arg gcs_url)" />
+        <arg name="tgt_system"    value="$(arg tgt_system)" />
+        <arg name="tgt_component" value="$(arg tgt_component)" />
+        <!--<arg name="log_output" value="$(arg log_output)" />-->
+    </include>
+</launch>
