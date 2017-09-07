@@ -129,7 +129,7 @@ cd $HOME
 # REVIEW alexeyk: update with GitHub URL.
 if [ ! -d "$HOME/redtail" ]; then
     echo "Cloning caffe_ros sources..."
-    git clone https://github.com/Alexey-Kamenev/redtail
+    git clone https://github.com/NVIDIA-Jetson/redtail
 else
     echo "Updating caffe_ros sources..."
     cd redtail
