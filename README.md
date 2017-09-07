@@ -1,6 +1,6 @@
 # NVIDIA Redtail project
 
-Autonomous drone navigation using deep learning. Refer to [wiki](https://github.com/Alexey-Kamenev/redtail/wiki) for more information on how to get started.
+Autonomous drone navigation using deep learning. Refer to [wiki](https://github.com/NVIDIA-Jetson/redtail/wiki) for more information on how to get started.
 
 # News
 * **2017-09-07**: NVIDIA Redtail project is released as an open source project.
