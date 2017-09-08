@@ -4,7 +4,8 @@ Autonomous drone navigation using deep learning. Refer to [wiki](https://github.
 
 # News
 * **2017-09-07**: NVIDIA Redtail project is released as an open source project.
-  Redtail's AI modules allow building autonomous drones and mobile robots based Deep Learning and NVIDIA Jetson TX1 and TX2 computers.
+  
+  Redtail's AI modules allow building autonomous drones and mobile robots based on Deep Learning and NVIDIA Jetson TX1 and TX2 embedded systems.
   Source code, pre-trained models as well as detailed build and test instructions are released on GitHub.
 
 * **2017-07-26**: migrated code and scripts to [JetPack 3.1](https://developer.nvidia.com/embedded/jetpack) with [TensorRT 2.1](https://developer.nvidia.com/tensorrt).
