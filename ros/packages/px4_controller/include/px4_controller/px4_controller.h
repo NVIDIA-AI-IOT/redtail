@@ -79,6 +79,27 @@ private:
                             float /*linear_control_val*/, float /*angular_control_val*/, bool /*has_command*/) override;
     };
 
+    class APMRover: public Vehicle
+    {
+        std::string getName()             override { return "APMRover"; }
+        std::string getOffboardModeName() override { return "MANUAL"; }
+        bool init(ros::NodeHandle& nh) override;
+        void printArgs() override;
+        void executeCommand(const PX4Controller& ctl, const geometry_msgs::PoseStamped& goto_pose,
+                            float linear_control_val, float angular_control_val, bool has_command) override;
+    private:
+        float turn_angle_scale_ = 1;
+        ros::Publisher rc_pub_;
+        int rc_steer_trim_ = 1500;
+        int rc_steer_dz_   = 30;
+        int rc_steer_min_  = 1100;
+        int rc_steer_max_  = 1900;
+        int rc_throttle_trim_ = 1500;
+        int rc_throttle_dz_   = 30;
+        int rc_throttle_min_  = 1100;
+        int rc_throttle_max_  = 1900;
+    };
+
 private:
     const int QUEUE_SIZE = 5;
     const int DNN_FRAME_WIDTH = 320;
@@ -101,8 +122,8 @@ private:
     float doExpSmoothing(float cur, float prev, float factor) const;
     float getPoseDistance(geometry_msgs::PoseStamped& pose1, geometry_msgs::PoseStamped& pose2) const;
     geometry_msgs::Quaternion getRotationTo(geometry_msgs::Point& position, geometry_msgs::Point& target_position) const;
-    geometry_msgs::Point computeNextWaypoint( geometry_msgs::PoseStamped& current_pose,
-        float linear_control_val, float angular_control_val, float linear_speed) const;
+    geometry_msgs::Point computeNextWaypoint(geometry_msgs::PoseStamped& current_pose,
+                                             float linear_control_val, float angular_control_val, float linear_speed) const;
 
 private:
     std::unique_ptr<Vehicle> vehicle_;
