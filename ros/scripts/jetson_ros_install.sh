@@ -51,6 +51,9 @@ sudo apt-get install -y ros-kinetic-ros-base ros-kinetic-mavros ros-kinetic-mavr
 # For some reason, SSL certificates get messed up on TX1 so Python scripts like rosdep will fail. Rehash the certs.
 sudo c_rehash /etc/ssl/certs
 
+# MAVROS requires GeographicLib datasets starting v0.20 .
+sudo geographiclib-get-geoids egm96-5
+
 # Initialize rosdep
 sudo rosdep init
 rosdep update

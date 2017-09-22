@@ -528,7 +528,7 @@ bool PX4Controller::arm()
         if (fcu_state_.mode != vehicle_->getOffboardModeName() && (ros::Time::now() - last_request > ros::Duration(5.0)))
         {
             // Enable OFFBOARD mode
-            if (setmode_client_.call(offb_setmode) && offb_setmode.response.success)
+            if (setmode_client_.call(offb_setmode) && offb_setmode.response.mode_sent)
             {
                 ROS_INFO("Offboard enabled");
             }
