@@ -129,7 +129,6 @@ catkin_make -DGSTREAMER_VERSION_1_x=On
 # Installing caffe_ros ROS package and its dependencies.
 echo "${green}Starting installation of caffe_ros and px4_controller ROS packages...${reset}"
 cd $HOME
-# REVIEW alexeyk: update with GitHub URL.
 if [ ! -d "$HOME/redtail" ]; then
     echo "Cloning caffe_ros sources..."
     git clone https://github.com/NVIDIA-Jetson/redtail

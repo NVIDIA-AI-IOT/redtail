@@ -39,6 +39,78 @@ void PX4Controller::Drone::executeCommand(const PX4Controller& ctl, const geomet
     ctl.local_pose_pub_.publish(goto_pose);
 }
 
+bool PX4Controller::APMRover::init(ros::NodeHandle& nh)
+{
+    nh.param("turn_angle_scale", turn_angle_scale_, 1.0f);
+
+    const int QUEUE_SIZE = 1;
+    rc_pub_ = nh.advertise<mavros_msgs::OverrideRCIn>("/mavros/rc/override", QUEUE_SIZE);
+    if(!rc_pub_)
+    {
+        ROS_INFO("Could not advertise to /mavros/rc/override");
+        return false;
+    }
+
+    auto get_param_client = nh.serviceClient<mavros_msgs::ParamGet>("/mavros/param/get");
+    mavros_msgs::ParamGet param_get;
+    param_get.request.param_id = "RC1_TRIM";
+    if (get_param_client.call(param_get) && param_get.response.success)
+        rc_steer_trim_ = (int)param_get.response.value.integer;
+    nh.param("rc_steer_trim", rc_steer_trim_, rc_steer_trim_);
+
+    param_get.request.param_id = "RC1_DZ";
+    if (get_param_client.call(param_get) && param_get.response.success)
+        rc_steer_dz_ = (int)param_get.response.value.integer;
+    nh.param("rc_steer_dz", rc_steer_dz_, rc_steer_dz_);
+
+    param_get.request.param_id = "RC3_TRIM";
+    if (get_param_client.call(param_get) && param_get.response.success)
+        rc_throttle_trim_ = (int)param_get.response.value.integer;
+    nh.param("rc_throttle_trim", rc_throttle_trim_, rc_throttle_trim_);
+
+    param_get.request.param_id = "RC3_DZ";
+    if (get_param_client.call(param_get) && param_get.response.success)
+        rc_throttle_dz_ = (int)param_get.response.value.integer;
+    nh.param("rc_throttle_dz", rc_throttle_dz_, rc_throttle_dz_);
+
+    return true;
+}
+
+void PX4Controller::APMRover::printArgs()
+{
+    ROS_INFO("(%s) Turn angle scale : %.1f", getName().c_str(), turn_angle_scale_);
+    ROS_INFO("(%s) Steer trim       : %d",   getName().c_str(), rc_steer_trim_);
+    ROS_INFO("(%s) Steer deadzone   : %d",   getName().c_str(), rc_steer_dz_);
+    ROS_INFO("(%s) Steer min        : %d",   getName().c_str(), rc_steer_min_);
+    ROS_INFO("(%s) Steer max        : %d",   getName().c_str(), rc_steer_max_);
+    ROS_INFO("(%s) Throttle trim    : %d",   getName().c_str(), rc_throttle_trim_);
+    ROS_INFO("(%s) Throttle deadzone: %d",   getName().c_str(), rc_throttle_dz_);
+    ROS_INFO("(%s) Throttle min     : %d",   getName().c_str(), rc_throttle_min_);
+    ROS_INFO("(%s) Throttle max     : %d",   getName().c_str(), rc_throttle_max_);
+}
+
+void PX4Controller::APMRover::executeCommand(const PX4Controller& ctl, const geometry_msgs::PoseStamped& goto_pose,
+                                             float linear_control_val, float angular_control_val, bool has_command)
+{
+    ROS_ASSERT(is_initialized_);
+
+    // REVIEW alexeyk: should not use RC override.
+    mavros_msgs::OverrideRCIn rc_override;
+    for (int c = 0; c < 8; c++)
+        rc_override.channels[c] = mavros_msgs::OverrideRCIn::CHAN_NOCHANGE;
+    int steer_delta = turn_angle_scale_ * angular_control_val;
+    int steer_dz    = steer_delta != 0 ? copysign(rc_steer_dz_, steer_delta) : 0;
+    rc_override.channels[0] = rc_steer_trim_ + steer_dz + steer_delta;
+    int throttle_delta = ctl.linear_speed_ * linear_control_val;
+    int throttle_dz    = throttle_delta != 0 ? copysign(rc_throttle_dz_, throttle_delta) : 0;
+    rc_override.channels[2] = rc_throttle_trim_ + throttle_dz + throttle_delta;
+    if(has_command)
+    {
+        ROS_DEBUG("APMRover::executeCommand: %d, %d (%.2f, %.2f)", (int)rc_override.channels[0], (int)rc_override.channels[2], linear_control_val, angular_control_val);
+        rc_pub_.publish(rc_override);
+    }
+}
+
 void PX4Controller::px4StateCallback(const mavros_msgs::State::ConstPtr &msg)
 {
     fcu_state_ = *msg;
@@ -285,6 +357,8 @@ bool PX4Controller::parseArguments(const ros::NodeHandle& nh)
     nh.param<std::string>("vehicle_type", vehicle_type, "drone");
     if (vehicle_type == "drone")
         vehicle_ = std::make_unique<Drone>();
+    else if (vehicle_type == "apmrover")
+        vehicle_ = std::make_unique<APMRover>();
     else
     {
         ROS_ERROR("Unknown vehicle type: %s", vehicle_type.c_str());
