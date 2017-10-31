@@ -4,7 +4,7 @@ Autonomous navigation for drones and ground vehicles using deep learning. Refer 
 
 This project contains deep neural networks, computer vision and control code, hardware instructions and other artifacts that allow users to build a drone or a ground vehicle which can autonomously navigate through highly unstructured environments like forest trails, sidewalks, etc. Our TrailNet DNN for visual navigation is running on NVIDIA's Jetson embedded platform. Our [arXiv paper](https://arxiv.org/abs/1705.02550) describes TrailNet and other runtime modules in detail.
 
-The project's deep neural networks (DNN) can be trained from scratch using publicly available data. A few [pre-trained DNNs](../blob/master/models/pretrained/) are also available as a part of this project. In case you want to train TrailNet DNN from scratch, follow the steps on [this page](./Models).
+The project's deep neural networks (DNNs) can be trained from scratch using publicly available data. A few [pre-trained DNNs](../blob/master/models/pretrained/) are also available as a part of this project. In case you want to train TrailNet DNN from scratch, follow the steps on [this page](./Models).
 
 ## References and Demos
 * [arXiv paper](https://arxiv.org/abs/1705.02550)
