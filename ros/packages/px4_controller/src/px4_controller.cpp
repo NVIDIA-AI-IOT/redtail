@@ -73,6 +73,7 @@ bool PX4Controller::APMRover::init(ros::NodeHandle& nh)
         rc_throttle_dz_ = (int)param_get.response.value.integer;
     nh.param("rc_throttle_dz", rc_throttle_dz_, rc_throttle_dz_);
 
+    is_initialized_ = true;
     return true;
 }
 
