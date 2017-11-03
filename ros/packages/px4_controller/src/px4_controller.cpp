@@ -524,9 +524,17 @@ bool PX4Controller::setJoystickParams(std::string joy_type)
         joystick_altitude_axis_ = 1;
         joystick_yaw_axis_ = 0;
     }
+    else if (joy_type == "shield_2017")
+    {
+        joystick_linear_axis_ = 5;
+        joystick_angular_axis_ = 2;
+        joystick_altitude_axis_ = 1;
+        joystick_yaw_axis_ = 0;
+    }
     else
     {
-        ROS_FATAL("Unsupported joystick type: %s", joy_type.c_str());
+        ROS_FATAL("Unsupported joystick type: %s. Supported types: shield, shield_2017, xbox_wireless, xbox_wired.",
+                  joy_type.c_str());
         return false;
     }
 
