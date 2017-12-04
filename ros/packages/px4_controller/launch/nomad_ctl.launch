@@ -1,0 +1,22 @@
+<launch>
+    <arg name="vehicle_type"          default="apmrover" />
+    <arg name="altitude_gain"         default="0" />
+    <arg name="linear_speed"          default="2.0" />
+    <arg name="linear_speed_scale"    default="120" />
+    <arg name="turn_angle_scale"      default="-200" />
+    <arg name="dnn_turn_angle"        default="15.0" />
+    <arg name="dnn_lateralcorr_angle" default="15.0" />
+    <arg name="joy_type"              default="shield" />
+
+    <node pkg="px4_controller" type="px4_controller_node" name="px4_controller">
+        <param name="vehicle_type"          value="$(arg vehicle_type)" />
+        <param name="altitude_gain"         value="$(arg altitude_gain)" />
+        <param name="linear_speed"          value="$(arg linear_speed)" />
+        <param name="linear_speed_scale"    value="$(arg linear_speed_scale)" />
+        <param name="turn_angle_scale"      value="$(arg turn_angle_scale)" />
+        <param name="dnn_turn_angle"        value="$(arg dnn_turn_angle)" />
+        <param name="dnn_lateralcorr_angle" value="$(arg dnn_lateralcorr_angle)" />
+        <param name="joy_type"              value="$(arg joy_type)" />
+    </node>    
+</launch>
+

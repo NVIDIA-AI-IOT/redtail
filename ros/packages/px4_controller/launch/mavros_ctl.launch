@@ -24,7 +24,7 @@
     <node pkg="px4_controller" type="px4_controller_node" name="px4_controller">
         <param name="linear_speed" value="$(arg linear_speed)" />
         <param name="altitude_gain" value="$(arg altitude_gain)" />
-	<param name="dnn_turn_angle" value="$(arg dnn_turn_angle)" />
+        <param name="dnn_turn_angle" value="$(arg dnn_turn_angle)" />
         <param name="joy_type" value="$(arg joy_type)" />
     </node>    
 </launch>
