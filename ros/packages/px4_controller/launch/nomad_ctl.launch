@@ -7,8 +7,9 @@
     <arg name="dnn_turn_angle"        default="15.0" />
     <arg name="dnn_lateralcorr_angle" default="15.0" />
     <arg name="joy_type"              default="shield" />
+    <arg name="log_output"            default="screen" />
 
-    <node pkg="px4_controller" type="px4_controller_node" name="px4_controller">
+    <node pkg="px4_controller" type="px4_controller_node" name="px4_controller" output="$(arg log_output)">
         <param name="vehicle_type"          value="$(arg vehicle_type)" />
         <param name="altitude_gain"         value="$(arg altitude_gain)" />
         <param name="linear_speed"          value="$(arg linear_speed)" />
@@ -19,4 +20,3 @@
         <param name="joy_type"              value="$(arg joy_type)" />
     </node>    
 </launch>
-

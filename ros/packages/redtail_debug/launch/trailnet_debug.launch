@@ -1,0 +1,41 @@
+<launch>
+    <arg name="prototxt_path" default="/home/nvidia/redtail/models/pretrained/TrailNet_SResNet-18.prototxt"/>
+    <arg name="model_path"    default="/home/nvidia/redtail/models/pretrained/TrailNet_SResNet-18.caffemodel" />
+    <arg name="input_layer"  default="data" />
+    <arg name="output_layer" default="out" />
+    <arg name="use_fp16"     default="true" />
+
+    <arg name="frame_id"   default="/tf_frame" />
+
+    <arg name="device"     default="/dev/video1" />
+
+    <!-- Defaults are for ZED WVGA -->
+    <arg name="img_width"       default="1344" />
+    <arg name="img_height"      default="376" />
+    <arg name="camera_info_url" default="file:///home/nvidia/zed_wvga.yaml" />
+    <!-- Use left ZED camera -->
+    <arg name="right_crop" default="$(eval int(0.5 * arg('img_width')))" />
+    
+    <arg name="host_ip"         default="10.42.0.211" />
+    <!-- Start the GSCAM node -->
+    <node pkg="gscam" type="gscam" name="gscam" output="screen">
+        <!-- Use 2 sinks (UDP H.265 streaming + ROS topic) -->
+        <param name="gscam_config"    value="v4l2src device=$(arg device) ! video/x-raw, width=$(arg img_width), height=$(arg img_height) ! videocrop top=0 left=0 right=$(arg right_crop) bottom=0 ! tee name=t ! queue ! videoconvert ! omxh265enc ! video/x-h265, stream-format=byte-stream ! h265parse ! rtph265pay config-interval=1 ! udpsink host=$(arg host_ip) port=6000 t. ! queue ! videoconvert" />
+        <param name="camera_info_url" value="$(arg camera_info_url)" />
+        <param name="frame_id"        value="$(arg frame_id)" />
+    </node>
+
+    <!-- Start the caffe_ros node -->
+    <node pkg="caffe_ros" type="caffe_ros_node" name="trails_dnn" output="screen">
+        <param name="prototxt_path" value="$(arg prototxt_path)" />
+        <param name="model_path"    value="$(arg model_path)" />
+        <param name="input_layer"   value="$(arg input_layer)" />
+        <param name="output_layer"  value="$(arg output_layer)" />
+        <param name="use_fp16"      value="$(arg use_fp16)" />
+    </node>
+
+    <node pkg="redtail_debug" type="redtail_debug_node" name="redtail_debug" output="screen">
+    </node>
+
+    <node name="tf_publisher" pkg="tf" type="static_transform_publisher" args="0 0 0 3.14 0 0 /map $(arg frame_id) 100"/>
+</launch>

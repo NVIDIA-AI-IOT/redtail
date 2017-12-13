@@ -112,9 +112,10 @@ sensor_msgs::Image::ConstPtr CaffeRos::computeOutputs()
     auto img = *cur_img_;
     net_.forward(img.data.data(), img.width, img.height, 3);
     auto out_msg = boost::make_shared<sensor_msgs::Image>();
-    // Set stamp to the same value as source image so we can synchronize with other nodes if needed.
+    // Set stamp and frame id to the same value as source image so we can synchronize with other nodes if needed.
     out_msg->header.stamp.sec  = img.header.stamp.sec;
     out_msg->header.stamp.nsec = img.header.stamp.nsec;
+    out_msg->header.frame_id   = img.header.frame_id;
     
     // Use single precision multidimensional array to represent outputs.
     // This can be useful in case DNN output is multidimensional such as in segmentation networks.
