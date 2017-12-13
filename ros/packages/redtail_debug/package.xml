@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<package>
+  <name>redtail_debug</name>
+  <version>0.1.0</version>
+  <description>Debugging node for redtail node.</description>
+  <maintainer email="akamenev@nvidia.com">Alexey Kamenev</maintainer>
+  <author email="akamenev@nvidia.com">Alexey Kamenev</author> 
+  <license>BSD</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <build_depend>roscpp</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>geometry_msgs</build_depend>
+  <build_depend>tf</build_depend>
+  <build_depend>cmake_modules</build_depend>
+  <build_depend>eigen</build_depend>
+  <build_depend>eigen_conversions</build_depend>
+  
+  <run_depend>roscpp</run_depend>
+  <run_depend>std_msgs</run_depend>
+  <run_depend>geometry_msgs</run_depend>
+  <run_depend>tf</run_depend>
+  <run_depend>cmake_modules</run_depend>
+  <run_depend>eigen</run_depend>
+  <run_depend>eigen_conversions</run_depend>
+
+  <export>
+  </export>
+</package>

@@ -123,6 +123,7 @@ RUN apt-key adv --keyserver hkp://ha.pool.sks-keyservers.net:80 --recv-key 421C3
         ros-kinetic-mavros-extras   \
         ros-kinetic-ros-base        \
         ros-kinetic-joy             \
+        ros-kinetic-rviz            \
     && apt-get -y autoremove        \
     && apt-get clean autoclean      \
     && rm -rf /var/lib/apt/lists/{apt,dpkg,cache,log} /tmp/* /var/tmp/*

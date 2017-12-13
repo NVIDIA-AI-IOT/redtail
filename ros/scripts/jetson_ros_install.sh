@@ -109,16 +109,11 @@ if [ ! -d "$HOME/gscam" ]; then
     echo "Cloning gscam sources..."
     git clone https://github.com/ros-drivers/gscam.git
     cd gscam
-    # At present, master branch does not support GStreamer 1.0 so need to switch to gstreamer-1-0-support branch.
-    git checkout gstreamer-1-0-support
-    # Currently you get a build error in gscam (‘scoped_ptr’ in namespace ‘boost’ does not name a template type).
-    sed -i '9i\#include <boost/scoped_ptr.hpp>' ./include/gscam/gscam_nodelet.h
     # Create symlink to catkin workspace.
     ln -s $HOME/gscam $CATKIN_WS/src/
 else
     echo "Updating gscam sources..."
     cd gscam
-    git checkout gstreamer-1-0-support
     git pull
 fi
 
