@@ -4,17 +4,17 @@
 # Full license terms provided in LICENSE.md file.
 
 REDTAIL_NAME=$1
-if [[ -z "${REDTAIL_NAME}" ]]; then
+if [ -z "${REDTAIL_NAME}" ]; then
     REDTAIL_NAME=redtail-sim
 fi
 
 HOST_DATA_DIR=$2
-if [[ -z "${HOST_DATA_DIR}" ]]; then
+if [ -z "${HOST_DATA_DIR}" ]; then
     HOST_DATA_DIR=/data/
 fi
 
 CONTAINER_DATA_DIR=$3
-if [[ -z "${CONTAINER_DATA_DIR}" ]]; then
+if [ -z "${CONTAINER_DATA_DIR}" ]; then
     CONTAINER_DATA_DIR=/data/
 fi
 

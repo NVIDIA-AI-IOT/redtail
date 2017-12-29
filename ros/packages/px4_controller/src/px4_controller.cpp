@@ -12,7 +12,7 @@
 #include "px4_controller/px4_controller.h"
 #include <boost/algorithm/string.hpp>
 #include <mavros_msgs/ParamGet.h>
-
+#include <std_msgs/Float32.h>
 namespace px4_control
 {
 
@@ -340,6 +340,9 @@ void PX4Controller::computeDNNControl(const float class_probabilities[6], float&
     turn_angle_ = turn_angle_*(1-direction_filter_innov_coeff_) + current_turn_angle_rad*direction_filter_innov_coeff_; // TODO: should this protected by a lock?
     float turn_angle_rad = turn_angle_;
     // end of turning angle filtering
+    std_msgs::Float32 angle_rad;
+    angle_rad.data = (float)angles::to_degrees(turn_angle_rad);
+    degree_pub_.publish(angle_rad);
 
     ROS_INFO("DNN turn angle: %4.2f deg.", (float)angles::to_degrees(turn_angle_rad));
 
@@ -442,7 +445,13 @@ bool PX4Controller::init(ros::NodeHandle& nh)
     timeof_last_logmsg_      = now;
     timeof_last_joy_command_ = now;
     timeof_last_dnn_command_ = now;
-
+   
+    degree_pub_ = nh.advertise<std_msgs::Float32>("/camera/degree", QUEUE_SIZE);
+    if(!degree_pub_)
+    {
+        ROS_INFO("Could not advertise to /camera/degree");
+        return false;
+    }
     // Mavros subsribers and publishers
     fcu_state_sub_ = nh.subscribe<mavros_msgs::State>("/mavros/state", QUEUE_SIZE, &PX4Controller::px4StateCallback, this);
     if(!fcu_state_sub_)

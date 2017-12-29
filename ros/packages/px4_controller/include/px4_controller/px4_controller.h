@@ -193,6 +193,7 @@ private:
     ros::Subscriber joy_sub_;
     ros::Subscriber dnn_sub_;
     ros::Subscriber objdnn_sub_;
+    ros::Publisher degree_pub_;
 };
 
 }
