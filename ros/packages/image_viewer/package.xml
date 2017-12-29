@@ -1,0 +1,46 @@
+<package>
+  <name>image_viewer</name>
+  <version>1.12.21</version>
+  <description>
+  A simple viewer for ROS image topics. Includes a specialized viewer
+  for stereo + disparity images.
+  </description>
+  <author>Patrick Mihelich</author>
+  <maintainer email="vincent.rabaud@gmail.com">Vincent Rabaud</maintainer>
+  <license>BSD</license>
+  <url>http://www.ros.org/wiki/image_viewer</url>
+
+  <export>
+    <rosdoc config="rosdoc.yaml" />
+    <nodelet plugin="${prefix}/nodelet_plugins.xml" />
+  </export>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <test_depend>rostest</test_depend>
+
+  <build_depend>camera_calibration_parsers</build_depend>
+  <build_depend version_gte="1.11.13">cv_bridge</build_depend>
+  <build_depend>dynamic_reconfigure</build_depend>
+  <build_depend>gtk2</build_depend>
+  <build_depend>image_transport</build_depend>
+  <build_depend>message_filters</build_depend>
+  <build_depend>message_generation</build_depend>
+  <build_depend>nodelet</build_depend>
+  <build_depend>rosconsole</build_depend>
+  <build_depend>roscpp</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>std_srvs</build_depend>
+  <build_depend>stereo_msgs</build_depend>
+
+  <run_depend>camera_calibration_parsers</run_depend>
+  <run_depend version_gte="1.11.13">cv_bridge</run_depend>
+  <run_depend>dynamic_reconfigure</run_depend>
+  <run_depend>gtk2</run_depend>
+  <run_depend>image_transport</run_depend>
+  <run_depend>message_filters</run_depend>
+  <run_depend>nodelet</run_depend>
+  <run_depend>rosconsole</run_depend>
+  <run_depend>roscpp</run_depend>
+  <run_depend>std_srvs</run_depend>
+</package>
