@@ -13,6 +13,8 @@
 #include <boost/algorithm/string.hpp>
 #include <mavros_msgs/ParamGet.h>
 #include <std_msgs/Float32.h>
+#include <mavros_msgs/ParamSet.h>
+
 namespace px4_control
 {
 
@@ -41,7 +43,8 @@ void PX4Controller::Drone::executeCommand(const PX4Controller& ctl, const geomet
 
 bool PX4Controller::APMRover::init(ros::NodeHandle& nh)
 {
-    nh.param("turn_angle_scale", turn_angle_scale_, 1.0f);
+    nh.param("linear_speed_scale", linear_speed_scale_, 1.0f);
+    nh.param("turn_angle_scale",   turn_angle_scale_,   1.0f);
 
     const int QUEUE_SIZE = 1;
     rc_pub_ = nh.advertise<mavros_msgs::OverrideRCIn>("/mavros/rc/override", QUEUE_SIZE);
@@ -73,11 +76,26 @@ bool PX4Controller::APMRover::init(ros::NodeHandle& nh)
         rc_throttle_dz_ = (int)param_get.response.value.integer;
     nh.param("rc_throttle_dz", rc_throttle_dz_, rc_throttle_dz_);
 
+    // APM requires setting SYSID_MYGCS to enable RC override.
+    auto set_param_client = nh.serviceClient<mavros_msgs::ParamSet>("/mavros/param/set");
+    mavros_msgs::ParamSet param_set;
+
+    param_set.request.param_id = "SYSID_MYGCS";
+    // REVIEW alexeyk: make a parameter?
+    const int gcs_id = 1;
+    param_set.request.value.integer = gcs_id;
+    if (set_param_client.call(param_set) && param_set.response.success)
+        ROS_INFO("(%s) Set SYSID_MYGCS to %d", getName().c_str(), gcs_id);
+    else
+        ROS_WARN("(%s) Failed to set SYSID_MYGCS to %d", getName().c_str(), gcs_id);
+
+    is_initialized_ = true;
     return true;
 }
 
 void PX4Controller::APMRover::printArgs()
 {
+    ROS_INFO("(%s) Speed scale      : %.1f", getName().c_str(), linear_speed_scale_);
     ROS_INFO("(%s) Turn angle scale : %.1f", getName().c_str(), turn_angle_scale_);
     ROS_INFO("(%s) Steer trim       : %d",   getName().c_str(), rc_steer_trim_);
     ROS_INFO("(%s) Steer deadzone   : %d",   getName().c_str(), rc_steer_dz_);
@@ -101,7 +119,7 @@ void PX4Controller::APMRover::executeCommand(const PX4Controller& ctl, const geo
     int steer_delta = turn_angle_scale_ * angular_control_val;
     int steer_dz    = steer_delta != 0 ? copysign(rc_steer_dz_, steer_delta) : 0;
     rc_override.channels[0] = rc_steer_trim_ + steer_dz + steer_delta;
-    int throttle_delta = ctl.linear_speed_ * linear_control_val;
+    int throttle_delta = linear_speed_scale_ * ctl.linear_speed_ * linear_control_val;
     int throttle_dz    = throttle_delta != 0 ? copysign(rc_throttle_dz_, throttle_delta) : 0;
     rc_override.channels[2] = rc_throttle_trim_ + throttle_dz + throttle_delta;
     if(has_command)
@@ -533,9 +551,17 @@ bool PX4Controller::setJoystickParams(std::string joy_type)
         joystick_altitude_axis_ = 1;
         joystick_yaw_axis_ = 0;
     }
+    else if (joy_type == "shield_2017")
+    {
+        joystick_linear_axis_ = 5;
+        joystick_angular_axis_ = 2;
+        joystick_altitude_axis_ = 1;
+        joystick_yaw_axis_ = 0;
+    }
     else
     {
-        ROS_FATAL("Unsupported joystick type: %s", joy_type.c_str());
+        ROS_FATAL("Unsupported joystick type: %s. Supported types: shield, shield_2017, xbox_wireless, xbox_wired.",
+                  joy_type.c_str());
         return false;
     }
 
@@ -766,7 +792,12 @@ void PX4Controller::spin()
                     dnn_commands_count_++;
                 }
                 else
+                {
+                    // We get here only when there is no commands from DNN or no joystick movements outside of deadzone.
+                    // Clearing the flag is currently requried only for rover.
+                    has_command = false;
                     break;
+                }
             }
 
             // Log

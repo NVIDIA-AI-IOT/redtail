@@ -88,7 +88,8 @@ private:
         void executeCommand(const PX4Controller& ctl, const geometry_msgs::PoseStamped& goto_pose,
                             float linear_control_val, float angular_control_val, bool has_command) override;
     private:
-        float turn_angle_scale_ = 1;
+        float linear_speed_scale_ = 1;
+        float turn_angle_scale_   = 1;
         ros::Publisher rc_pub_;
         int rc_steer_trim_ = 1500;
         int rc_steer_dz_   = 30;
