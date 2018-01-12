@@ -82,8 +82,8 @@ void TensorNet::profileModel(ConstStr& prototxt_path, ConstStr& model_path, bool
     if (has_fast_FP16 && !use_FP16)
         ROS_INFO("... however, the model will be loaded as FP32.");
     
-	nvinfer1::DataType model_data_type = (has_fast_FP16 && use_FP16) ? nvinfer1::DataType::kHALF : nvinfer1::DataType::kFLOAT;
-	auto blob_finder = parser->parse(prototxt_path.c_str(), model_path.c_str(), *network, model_data_type);
+    nvinfer1::DataType model_data_type = (has_fast_FP16 && use_FP16) ? nvinfer1::DataType::kHALF : nvinfer1::DataType::kFLOAT;
+    auto blob_finder = parser->parse(prototxt_path.c_str(), model_path.c_str(), *network, model_data_type);
     if (blob_finder == nullptr)
     {
         ROS_FATAL("Failed to parse network: %s, %s", prototxt_path.c_str(), model_path.c_str());
@@ -102,13 +102,13 @@ void TensorNet::profileModel(ConstStr& prototxt_path, ConstStr& model_path, bool
     // Build model.
     // REVIEW alexeyk: make configurable?
     // Note: FP16 requires batch size to be even, TensorRT will switch automatically when building an engine.
-	builder->setMaxBatchSize(1);
-	builder->setMaxWorkspaceSize(16 * 1024 * 1024);
+    builder->setMaxBatchSize(1);
+    builder->setMaxWorkspaceSize(16 * 1024 * 1024);
 
     builder->setHalf2Mode(has_fast_FP16 && use_FP16);
 
     ROS_INFO("Building CUDA engine...");
-	auto engine = builder->buildCudaEngine(*network);
+    auto engine = builder->buildCudaEngine(*network);
     if (engine == nullptr)
     {
         ROS_FATAL("Failed to build CUDA engine.");
@@ -126,8 +126,8 @@ void TensorNet::profileModel(ConstStr& prototxt_path, ConstStr& model_path, bool
     // Cleanup.
     network->destroy();
     parser->destroy();
-	engine->destroy();
-	builder->destroy();
+    engine->destroy();
+    builder->destroy();
 }
 
 void TensorNet::loadNetwork(ConstStr& prototxt_path, ConstStr& model_path,
@@ -166,14 +166,14 @@ void TensorNet::loadNetwork(ConstStr& prototxt_path, ConstStr& model_path,
     model.seekg(0, model.beg);
     const auto& model_final = model.str();
 
-	engine_ = infer_->deserializeCudaEngine(model_final.c_str(), model_final.size(), nullptr);
+    engine_ = infer_->deserializeCudaEngine(model_final.c_str(), model_final.size(), nullptr);
     if (engine_ == nullptr)
     {
         ROS_FATAL("Failed to deserialize engine.");
         ros::shutdown();
     }
 
-	context_ = engine_->createExecutionContext();
+    context_ = engine_->createExecutionContext();
     if (context_ == nullptr)
     {
         ROS_FATAL("Failed to create execution context.");
@@ -182,14 +182,14 @@ void TensorNet::loadNetwork(ConstStr& prototxt_path, ConstStr& model_path,
     ROS_INFO("Created CUDA engine and context.");
 
     int iinp = engine_->getBindingIndex(input_blob.c_str());
-	in_dims_ = DimsToCHW(engine_->getBindingDimensions(iinp));
+    in_dims_ = DimsToCHW(engine_->getBindingDimensions(iinp));
     ROS_INFO("Input : (W:%4u, H:%4u, C:%4u).", in_dims_.w(), in_dims_.h(), in_dims_.c());
     //cv::gpu::ensureSizeIsEnough(in_dims_.h(), in_dims_.w(), CV_8UC3, in_d_);
     in_d_ = cv::gpu::createContinuous(in_dims_.c(), in_dims_.w() * in_dims_.h(), CV_32FC1);
     assert(in_d_.isContinuous());
     
     int iout  = engine_->getBindingIndex(output_blob.c_str());
-	out_dims_ = DimsToCHW(engine_->getBindingDimensions(iout));
+    out_dims_ = DimsToCHW(engine_->getBindingDimensions(iout));
     ROS_INFO("Output: (W:%4u, H:%4u, C:%4u).", out_dims_.w(), out_dims_.h(), out_dims_.c());
 
     // Allocate mapped memory for the outputs.
@@ -206,8 +206,9 @@ void TensorNet::loadNetwork(ConstStr& prototxt_path, ConstStr& model_path,
     }
 }
 
-void TensorNet::forward(const unsigned char* input, size_t w, size_t h, size_t c)
+void TensorNet::forward(const unsigned char* input, size_t w, size_t h, size_t c, const std::string& encoding)
 {
+    ROS_ASSERT(encoding == "rgb8" || encoding == "bgr8");
     ROS_ASSERT(c == (size_t)in_dims_.c());
     //ROS_DEBUG("Forward: input image is (%zu, %zu, %zu), network input is (%u, %u, %u)", w, h, c, in_dims_.w(), in_dims_.h(), in_dims_.c());
 
@@ -217,9 +218,19 @@ void TensorNet::forward(const unsigned char* input, size_t w, size_t h, size_t c
     ros::Time start = ros::Time::now();
 
     in_h_ = cv::Mat((int)h, (int)w, CV_8UC3, (void*)input);
-    // Convert image from RGB to BGR format used by OpenCV if needed.
+    // Handle encodings.
     if (inp_fmt_ == InputFormat::BGR)
-        cv::cvtColor(in_h_, in_h_, CV_RGB2BGR);
+    {
+        // Convert image from RGB to BGR format used by OpenCV if needed.
+        if (encoding == "rgb8")
+            cv::cvtColor(in_h_, in_h_, CV_RGB2BGR);
+    }
+    else if (inp_fmt_ == InputFormat::RGB)
+    {
+        // Input image in OpenCV BGR, convert to RGB.
+        if (encoding == "bgr8")
+            cv::cvtColor(in_h_, in_h_, CV_BGR2RGB);
+    }
     //ROS_INFO("Dims: (%zu, %zu) -> (%zu, %zu)", w, h, (size_t)in_dims_.w(), (size_t)in_dims_.h());
     // Convert to floating point type.
     in_h_.convertTo(in_h_, CV_32F);

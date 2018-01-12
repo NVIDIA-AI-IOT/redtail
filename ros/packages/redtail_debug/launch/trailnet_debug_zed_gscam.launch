@@ -1,4 +1,8 @@
 <launch>
+    <!-- 
+    redtail debug .launch file for ZED camera which uses gscam node (in case ZED ROS node is not available).
+    Note that gscam will not perform image undistortion despite taking calibration YAML file as an argument.
+    -->
     <arg name="prototxt_path" default="/home/nvidia/redtail/models/pretrained/TrailNet_SResNet-18.prototxt"/>
     <arg name="model_path"    default="/home/nvidia/redtail/models/pretrained/TrailNet_SResNet-18.caffemodel" />
     <arg name="input_layer"  default="data" />
@@ -37,5 +41,5 @@
     <node pkg="redtail_debug" type="redtail_debug_node" name="redtail_debug" output="screen">
     </node>
 
-    <node name="tf_publisher" pkg="tf" type="static_transform_publisher" args="0 0 0 3.14 0 0 /map $(arg frame_id) 100"/>
+    <node pkg="tf" type="static_transform_publisher" name="tf_publisher" args="0 0 0 3.14 0 0 /map $(arg frame_id) 100"/>
 </launch>
