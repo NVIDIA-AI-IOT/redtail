@@ -24,7 +24,7 @@ public:
                      ConstStr& inputBlob = "data", ConstStr& outputBlob = "prob",
                      bool useFP16 = true, bool use_cached_model = true);
 
-    void forward(const unsigned char* input, size_t w, size_t h, size_t c);
+    void forward(const unsigned char* input, size_t w, size_t h, size_t c, const std::string& encoding);
 
     int getInWidth() const    { return in_dims_.w(); }
     int getInHeight() const   { return in_dims_.h(); }
@@ -97,13 +97,14 @@ protected:
     };
     static Profiler s_profiler;
 
-	nvinfer1::IRuntime*          infer_;
-	nvinfer1::ICudaEngine*       engine_;
-	nvinfer1::IExecutionContext* context_;
+    nvinfer1::IRuntime*          infer_;
+    nvinfer1::ICudaEngine*       engine_;
+    nvinfer1::IExecutionContext* context_;
     
     nvinfer1::DimsCHW in_dims_;
     nvinfer1::DimsCHW out_dims_;
 
+    // DNN input format.
     InputFormat inp_fmt_ = InputFormat::BGR;
 
     cv::Mat in_h_;

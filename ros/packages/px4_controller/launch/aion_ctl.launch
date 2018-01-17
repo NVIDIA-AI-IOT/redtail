@@ -4,8 +4,8 @@
     <arg name="linear_speed"          default="2.0" />
     <arg name="linear_speed_scale"    default="90" />
     <arg name="turn_angle_scale"      default="-250" />
-    <arg name="dnn_turn_angle"        default="30.0" />
-    <arg name="dnn_lateralcorr_angle" default="30.0" />
+    <arg name="dnn_turn_angle"        default="15.0" />
+    <arg name="dnn_lateralcorr_angle" default="15.0" />
     <arg name="joy_type"              default="shield" />
     <arg name="log_output"            default="screen" />
 
