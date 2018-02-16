@@ -14,6 +14,11 @@ The project's deep neural networks (DNNs) can be trained from scratch using publ
 * [Demo video showing generalization to ground vehicle control and other environments](https://www.youtube.com/watch?v=ZKF5N8xUxfw)
 
 # News
+* **2018-02-15**: added support for the TBS discovery platform.
+  * Step by step instructions on how to assemble the [TBS discovery drone](../../wiki/Skypad-TBS-Discovery-Setup).
+  * Instructions on how to attach and use a [Zed stereo camera](https://www.stereolabs.com/zed/).
+  * Software setup guide with instructions on how to calibrate, test and fly the drone.
+
 * **2017-10-12**: added full simulation Docker image, experimental support for APM Rover and support for MAVROS v0.21+.
   
   * Redtail simulation Docker image contains all the components required to run full Redtail simulation in Docker. Refer to [wiki](../../wiki/Testing-in-Simulator) for more information.
