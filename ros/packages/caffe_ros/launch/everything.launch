@@ -2,13 +2,13 @@
     <arg name="trail_prototxt_path" default="/home/nvidia/redtail/models/pretrained/TrailNet_SResNet-18.prototxt" />
     <arg name="trail_model_path"    default="/home/nvidia/redtail/models/pretrained/TrailNet_SResNet-18.caffemodel" />
     <arg name="trail_output_layer"  default="out" />
-    <arg name="trail_use_fp16"      default="true" />
+    <arg name="trail_data_type"     default="fp16" />
     <arg name="trail_rate_hz"       default="30" />
     
     <arg name="object_prototxt_path" default="/home/nvidia/redtail/models/pretrained/yolo-relu.prototxt" />
     <arg name="object_model_path"    default="/home/nvidia/redtail/models/pretrained/yolo-relu.caffemodel" />
     <arg name="object_output_layer"  default="fc25" />
-    <arg name="object_use_fp16"      default="true" />
+    <arg name="object_data_type"     default="fp16" />
     <arg name="object_rate_hz"       default="1" />
     <arg name="obj_det_threshold"    default="0.2" />
 
@@ -40,7 +40,7 @@
         <param name="prototxt_path" value="$(arg trail_prototxt_path)" />
         <param name="model_path"    value="$(arg trail_model_path)" />
         <param name="output_layer"  value="$(arg trail_output_layer)" />
-        <param name="use_fp16"      value="$(arg trail_use_fp16)" />
+        <param name="data_type"     value="$(arg trail_data_type)" />
         <param name="max_rate_hz"   value="$(arg trail_rate_hz)" />
     </node>
 
@@ -54,7 +54,7 @@
         <param name="post_proc"     value="YOLO" />
         <param name="obj_det_threshold" value="$(arg obj_det_threshold)" />
         <param name="iou_threshold"     value="0.2" />
-        <param name="use_fp16"      value="$(arg object_use_fp16)" />
+        <param name="data_type"     value="$(arg object_data_type)" />
         <param name="max_rate_hz"   value="$(arg object_rate_hz)" />
     </node>
     

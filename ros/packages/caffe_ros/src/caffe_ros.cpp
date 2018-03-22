@@ -23,6 +23,9 @@ CaffeRos::CaffeRos()
     std::string output_layer;
     std::string inp_fmt;
     std::string post_proc;
+    std::string data_type_s;
+    std::string int8_calib_src;
+    std::string int8_calib_cache;
     bool        use_FP16;
     float       inp_scale;
     float       inp_shift;
@@ -37,7 +40,14 @@ CaffeRos::CaffeRos()
     nh.param<std::string>("output_layer",  output_layer, "prob");
     nh.param<std::string>("inp_fmt",       inp_fmt, "BGR");
     nh.param<std::string>("post_proc",     post_proc, "");
+    nh.param<std::string>("data_type",     data_type_s, "fp16");
+    nh.param<std::string>("int8_calib_src",   int8_calib_src,   "");
+    nh.param<std::string>("int8_calib_cache", int8_calib_cache, "");
+    
+    // Backward compatibility: (use_FP16 == false) means use FP32.
     nh.param("use_fp16",  use_FP16, true);
+    data_type_s = use_FP16 ? data_type_s : "fp32";
+
     nh.param("inp_scale", inp_scale, 1.0f);
     nh.param("inp_shift", inp_shift, 0.0f);
     nh.param("camera_queue_size", camera_queue_size, DEFAULT_CAMERA_QUEUE_SIZE);
@@ -54,26 +64,37 @@ CaffeRos::CaffeRos()
     ROS_INFO("Input : %s", input_layer.c_str());
     ROS_INFO("Output: %s", output_layer.c_str());
     ROS_INFO("In Fmt: %s", inp_fmt.c_str());
-    ROS_INFO("FP16  : %s", use_FP16 ? "yes" : "no");
+    ROS_INFO("DType : %s", data_type_s.c_str());
     ROS_INFO("Scale : %.4f", inp_scale);
     ROS_INFO("Shift : %.2f", inp_shift);
     ROS_INFO("Cam Q : %d", camera_queue_size);
     ROS_INFO("DNN Q : %d", dnn_queue_size);
-    ROS_INFO("Post P: %s", post_proc.c_str());
+    ROS_INFO("Post P: %s", post_proc.empty() ? "none" : post_proc.c_str());
     ROS_INFO("Obj T : %.2f", obj_det_threshold_);
     ROS_INFO("IOU T : %.2f", iou_threshold_);
     ROS_INFO("Rate  : %.1f", max_rate_hz_);
     ROS_INFO("Debug : %s", debug_mode_ ? "yes" : "no");
+    ROS_INFO("INT8 calib src  : %s", int8_calib_src.c_str());
+    ROS_INFO("INT8 calib cache: %s", int8_calib_cache.c_str());
+    //
+    ROS_WARN("The use_FP16 parameter is deprecated though still supported. "
+             "Please use data_type instead as use_FP16 will be removed in future release.");
 
     setPostProcessing(post_proc);
 
-    net_.loadNetwork(prototxt_path, model_path, input_layer, output_layer, use_FP16, use_cached_model);
+    auto data_type = parseDataType(data_type_s);
+
+    if (data_type == nvinfer1::DataType::kINT8)
+        net_.createInt8Calibrator(int8_calib_src, int8_calib_cache);
+
+    net_.loadNetwork(prototxt_path, model_path, input_layer, output_layer,
+                     data_type, use_cached_model);
     net_.setInputFormat(inp_fmt);
     net_.setScale(inp_scale);
     net_.setShift(inp_shift);
     if (debug_mode_)
         net_.showProfile(true);
-        
+
     image_sub_  = nh.subscribe<sensor_msgs::Image>(camera_topic, camera_queue_size, &CaffeRos::imageCallback, this);
     output_pub_ = nh.advertise<sensor_msgs::Image>("network/output", dnn_queue_size);
 }
@@ -116,7 +137,7 @@ sensor_msgs::Image::ConstPtr CaffeRos::computeOutputs()
     out_msg->header.stamp.sec  = img.header.stamp.sec;
     out_msg->header.stamp.nsec = img.header.stamp.nsec;
     out_msg->header.frame_id   = img.header.frame_id;
-    
+
     // Use single precision multidimensional array to represent outputs.
     // This can be useful in case DNN output is multidimensional such as in segmentation networks.
     // Note that encoding may not be compatible with other ROS code that uses Image in case number of channels > 4.
@@ -155,7 +176,7 @@ sensor_msgs::Image::ConstPtr CaffeRos::computeOutputs()
         }
         ROS_ASSERT(i == msg_data.size());
         // Create message.
-        // YOLO output is represented as a matrix where each row is 
+        // YOLO output is represented as a matrix where each row is
         // a predicted object vector of size 6: label, prob and 4 bounding box coordinates.
         out_msg->encoding = "32FC1";
         out_msg->width    = num_col;

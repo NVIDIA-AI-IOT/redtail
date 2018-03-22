@@ -53,9 +53,9 @@ TEST(CaffeRosTests, TrailNetPredictions)
     ASSERT_TRUE(fs::exists(test_data_dir));
 
     CaffeRosTestsCallback t;
-    auto dnn_sub = nh.subscribe<sensor_msgs::Image>("/trails_dnn/network/output", 1,
+    auto dnn_sub = nh.subscribe<sensor_msgs::Image>("/trailnet/dnn/network/output", 1,
                                                     &CaffeRosTestsCallback::dnnCallback, &t);
-    const char* camera_topic = "/camera_trails/image_raw";
+    const char* camera_topic = "/trailnet/camera/image_raw";
     auto img_pub = nh.advertise<sensor_msgs::Image>(camera_topic, 1);
 
     // Test images and expected predictions.
@@ -111,9 +111,9 @@ TEST(CaffeRosTests, TrailNetPredictionsBGR8)
     ASSERT_TRUE(fs::exists(test_data_dir));
 
     CaffeRosTestsCallback t;
-    auto dnn_sub = nh.subscribe<sensor_msgs::Image>("/trails_dnn/network/output", 1,
+    auto dnn_sub = nh.subscribe<sensor_msgs::Image>("/trailnet/dnn/network/output", 1,
                                                     &CaffeRosTestsCallback::dnnCallback, &t);
-    const char* camera_topic = "/camera_trails/image_raw";
+    const char* camera_topic = "/trailnet/camera/image_raw";
     auto img_pub = nh.advertise<sensor_msgs::Image>(camera_topic, 1);
 
     // Test images and expected predictions.
@@ -169,9 +169,9 @@ TEST(CaffeRosTests, TrailNetPredictionsFP16)
     ASSERT_TRUE(fs::exists(test_data_dir));
 
     CaffeRosTestsCallback t;
-    auto dnn_sub = nh.subscribe<sensor_msgs::Image>("/trails_dnn_fp16/network/output", 1,
+    auto dnn_sub = nh.subscribe<sensor_msgs::Image>("/trailnet/dnn_fp16/network/output", 1,
                                                     &CaffeRosTestsCallback::dnnCallback, &t);
-    const char* camera_topic = "/camera_trails_fp16/image_raw";
+    const char* camera_topic = "/trailnet/camera_fp16/image_raw";
     auto img_pub = nh.advertise<sensor_msgs::Image>(camera_topic, 1);
 
     // Test images and expected predictions.
@@ -220,6 +220,65 @@ TEST(CaffeRosTests, TrailNetPredictionsFP16)
     }
 }
 
+TEST(CaffeRosTests, TrailNetPredictionsINT8)
+{
+    ros::NodeHandle nh("~");
+    std::string test_data_dir;
+    nh.param<std::string>("test_data_dir", test_data_dir, "");
+    ASSERT_TRUE(fs::exists(test_data_dir));
+
+    CaffeRosTestsCallback t;
+    auto dnn_sub = nh.subscribe<sensor_msgs::Image>("/trailnet/dnn_int8/network/output", 1,
+                                                    &CaffeRosTestsCallback::dnnCallback, &t);
+    const char* camera_topic = "/trailnet/camera_int8/image_raw";
+    auto img_pub = nh.advertise<sensor_msgs::Image>(camera_topic, 1);
+
+    // Test images and expected predictions.
+    auto images            = std::vector<std::string>{"rot_l.jpg", "rot_c.jpg", "rot_r.jpg", "tran_l.jpg", "tran_r.jpg"};
+    float predictions[][6] = {{0.685, 0.211, 0.104, 0.493, 0.050, 0.466},
+                              {0.112, 0.794, 0.093, 0.541, 0.127, 0.332},
+                              {0.000, 0.027, 0.971, 0.095, 0.068, 0.836},
+                              {0.100, 0.896, 0.000, 0.521, 0.101, 0.377},
+                              {0.156, 0.285, 0.558, 0.074, 0.098, 0.827}};
+    
+    // When running using rostest, current directory is $HOME/.ros
+    fs::path data_dir{test_data_dir};
+
+    for (size_t i = 0; i < images.size(); i++)
+    {
+        auto img_msg = readImage((data_dir / images[i]).string());
+        // Use image index as a unique timestamp.
+        img_msg->header.stamp.sec  = 0;
+        img_msg->header.stamp.nsec = (int)i;
+
+        ros::Rate rate(1000);
+        // Wait until DNN processes the current messages. There might be multiple messages
+        // in the queue so make sure to select the right one based on current index.
+        while (ros::ok() && (t.dnn_out_ == nullptr || t.dnn_out_->header.stamp.nsec != i))
+        {
+            img_pub.publish(img_msg);
+            ros::spinOnce();
+            rate.sleep();
+        }
+
+        EXPECT_TRUE(t.dnn_out_ != nullptr);
+        auto dnn_out = *t.dnn_out_;
+        // The output should be 1x1x6 (HxWxC).
+        EXPECT_EQ(dnn_out.width,  1);
+        EXPECT_EQ(dnn_out.height, 1);
+        // float32, channels == 6.
+        EXPECT_EQ(dnn_out.encoding, "32FC6");
+        
+        auto data  = reinterpret_cast<const float*>(dnn_out.data.data());
+        for (int col = 0; col < 6; col++)
+        {
+            // Must use proper floating point comparison.
+            // REVIEW alexeyk: the tolerance has to be much higher in INT8.
+            EXPECT_NEAR(data[col], predictions[i][col], 0.1f) << "Values are not equal at (" << i << ", " << col <<")";
+        }
+    }
+}
+
 TEST(CaffeRosTests, YoloNetPredictions)
 {
     ros::NodeHandle nh("~");
@@ -228,9 +287,9 @@ TEST(CaffeRosTests, YoloNetPredictions)
     ASSERT_TRUE(fs::exists(test_data_dir));
 
     CaffeRosTestsCallback t;
-    auto dnn_sub = nh.subscribe<sensor_msgs::Image>("/object_dnn/network/output", 1,
+    auto dnn_sub = nh.subscribe<sensor_msgs::Image>("/yolo/dnn/network/output", 1,
                                                     &CaffeRosTestsCallback::dnnCallback, &t);
-    const char* camera_topic = "/camera_object/image_raw";
+    const char* camera_topic = "/yolo/camera/image_raw";
     auto img_pub = nh.advertise<sensor_msgs::Image>(camera_topic, 1);
 
     // Test images and expected predictions.
@@ -281,9 +340,9 @@ TEST(CaffeRosTests, YoloNetPredictionsFP16)
     ASSERT_TRUE(fs::exists(test_data_dir));
 
     CaffeRosTestsCallback t;
-    auto dnn_sub = nh.subscribe<sensor_msgs::Image>("/object_dnn_fp16/network/output", 1,
+    auto dnn_sub = nh.subscribe<sensor_msgs::Image>("/yolo/dnn_fp16/network/output", 1,
                                                     &CaffeRosTestsCallback::dnnCallback, &t);
-    const char* camera_topic = "/camera_object_fp16/image_raw";
+    const char* camera_topic = "/yolo/camera_fp16/image_raw";
     auto img_pub = nh.advertise<sensor_msgs::Image>(camera_topic, 1);
 
     // Test images and expected predictions.

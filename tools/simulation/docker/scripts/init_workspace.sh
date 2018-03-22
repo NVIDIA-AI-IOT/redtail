@@ -17,20 +17,9 @@ cd ..
 catkin_make
 source devel/setup.bash
 
-# Install gscam ROS package and its dependencies.
-cd ${HOME}
-git clone https://github.com/ros-perception/image_common.git
-ln -s ${HOME}/image_common/camera_calibration_parsers ${CATKIN_WS}/src/
-ln -s ${HOME}/image_common/camera_info_manager ${CATKIN_WS}/src/
-ln -s ${HOME}/image_common/image_transport ${CATKIN_WS}/src/
-
+# Install gscam ROS package.
 cd ${HOME}
 git clone https://github.com/ros-drivers/gscam.git
-cd gscam
-# At present, master branch does not support GStreamer 1.0 so need to switch to gstreamer-1-0-support branch.
-git checkout gstreamer-1-0-support
-# Currently you get a build error in gscam (‘scoped_ptr’ in namespace ‘boost’ does not name a template type).
-sed -i '9i\#include <boost/scoped_ptr.hpp>' ./include/gscam/gscam_nodelet.h
 # Create symlink to catkin workspace.
 ln -s ${HOME}/gscam ${CATKIN_WS}/src/
 
