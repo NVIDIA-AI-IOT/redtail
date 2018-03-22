@@ -5,7 +5,7 @@
 
 REDTAIL_NAME=$1
 if [[ -z "${REDTAIL_NAME}" ]]; then
-    REDTAIL_NAME=redtail-sim
+    REDTAIL_NAME=redtail-sim-v2
 fi
 
 HOST_DATA_DIR=$2
@@ -25,7 +25,7 @@ REDTAIL_ID=`docker ps -aqf "name=^/${REDTAIL_NAME}$"`
 if [ -z "${REDTAIL_ID}" ]; then
     echo "Creating new redtail container."
     xhost +
-    nvidia-docker run -it --privileged --network=host -v ${HOST_DATA_DIR}:${CONTAINER_DATA_DIR}:rw -v /tmp/.X11-unix:/tmp/.X11-unix -e DISPLAY=unix${DISPLAY} -p 14556:14556/udp --name=${REDTAIL_NAME} nvidia-redtail-sim:kinetic bash
+    nvidia-docker run -it --privileged --network=host -v ${HOST_DATA_DIR}:${CONTAINER_DATA_DIR}:rw -v /tmp/.X11-unix:/tmp/.X11-unix -e DISPLAY=unix${DISPLAY} -p 14556:14556/udp --name=${REDTAIL_NAME} nvidia-redtail-sim:kinetic-v2 bash
 else
     echo "Found redtail container: ${REDTAIL_ID}."
     # Check if the container is already running and start if necessary.

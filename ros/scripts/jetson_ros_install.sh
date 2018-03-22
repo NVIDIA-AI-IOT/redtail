@@ -90,20 +90,10 @@ echo "Installing dependencies..."
 sudo apt-get install -y libgstreamer1.0-dev gstreamer1.0-tools libgstreamer-plugins-base1.0-dev libgstreamer-plugins-good1.0-dev libyaml-cpp-dev
 
 cd $HOME
-# REVIEW alexeyk: replace with sudo apt-get install -y ros-kinetic-camera-info-manager ros-kinetic-camera-calibration-parsers ros-kinetic-image-transport
-if [ ! -d "$HOME/image_common" ]; then
-    echo "Cloning image_common sources..."
-    git clone https://github.com/ros-perception/image_common.git
-    # Create symlinks to catkin workspace.
-    ln -s $HOME/image_common/camera_calibration_parsers $CATKIN_WS/src/
-    ln -s $HOME/image_common/camera_info_manager $CATKIN_WS/src/
-    ln -s $HOME/image_common/image_transport $CATKIN_WS/src/
-else
-    echo "Updating image_common sources..."
-    cd image_common
-    git pull
-fi
+# Install gscam dependencies.
+sudo apt-get install -y ros-kinetic-camera-info-manager ros-kinetic-camera-calibration-parsers ros-kinetic-image-transport
 
+# Install gscam from sources rather than apt-get install as the latter installs a lot of redundant stuff.
 cd $HOME
 if [ ! -d "$HOME/gscam" ]; then
     echo "Cloning gscam sources..."
@@ -121,14 +111,14 @@ echo "Building gscam package..."
 cd $CATKIN_WS
 catkin_make -DGSTREAMER_VERSION_1_x=On
 
-# Installing caffe_ros ROS package and its dependencies.
+# Installing redtail ROS packages and dependencies.
 echo "${green}Starting installation of caffe_ros and px4_controller ROS packages...${reset}"
 cd $HOME
 if [ ! -d "$HOME/redtail" ]; then
-    echo "Cloning caffe_ros sources..."
+    echo "Cloning redtail sources..."
     git clone https://github.com/NVIDIA-Jetson/redtail
 else
-    echo "Updating caffe_ros sources..."
+    echo "Updating redtail sources..."
     cd redtail
     git checkout master
     git pull
@@ -142,15 +132,7 @@ fi
 
 echo "Installing dependencies..."
 cd $HOME
-if [ ! -d "$HOME/angles" ]; then
-    git clone https://github.com/ros/angles.git
-    # Create symlink to catkin workspace.
-    ln -s $HOME/angles/angles $CATKIN_WS/src/
-else
-    echo "Updating angles sources..."
-    cd angles
-    git pull
-fi
+sudo apt-get install -y ros-kinetic-angles
 
 cd $CATKIN_WS
 echo "Building caffe_ros package..."

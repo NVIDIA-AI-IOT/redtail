@@ -12,64 +12,13 @@ find_package(catkin REQUIRED COMPONENTS
 ## System dependencies are found with CMake's conventions
 #find_package(Boost REQUIRED COMPONENTS system)
 find_package(CUDA)
-# OpenCV 2.4.13 is default on Jetson. Might be required to install in simulation environment.
-find_package(OpenCV 2.4.13 REQUIRED)
-
-## Uncomment this if the package has a setup.py. This macro ensures
-## modules and global scripts declared therein get installed
-## See http://ros.org/doc/api/catkin/html/user_guide/setup_dot_py.html
-# catkin_python_setup()
-
-################################################
-## Declare ROS messages, services and actions ##
-################################################
-
-## To declare and build messages, services or actions from within this
-## package, follow these steps:
-## * Let MSG_DEP_SET be the set of packages whose message types you use in
-##   your messages/services/actions (e.g. std_msgs, actionlib_msgs, ...).
-## * In the file package.xml:
-##   * add a build_depend tag for "message_generation"
-##   * add a build_depend and a run_depend tag for each package in MSG_DEP_SET
-##   * If MSG_DEP_SET isn't empty the following dependency has been pulled in
-##     but can be declared for certainty nonetheless:
-##     * add a run_depend tag for "message_runtime"
-## * In this file (CMakeLists.txt):
-##   * add "message_generation" and every package in MSG_DEP_SET to
-##     find_package(catkin REQUIRED COMPONENTS ...)
-##   * add "message_runtime" and every package in MSG_DEP_SET to
-##     catkin_package(CATKIN_DEPENDS ...)
-##   * uncomment the add_*_files sections below as needed
-##     and list every .msg/.srv/.action file to be processed
-##   * uncomment the generate_messages entry below
-##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
-
-## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-#   Message1.msg
-#   Message2.msg
-# )
-
-## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   Service1.srv
-#   Service2.srv
-# )
-
-## Generate actions in the 'action' folder
-# add_action_files(
-#   FILES
-#   Action1.action
-#   Action2.action
-# )
-
-## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   std_msgs
-# )
+# OpenCV 3.3.1 is default on Jetson starting JetPack 3.2. Might be required to install in simulation environment.
+# PATHS is required as ROS Kinetic installs its own version of OpenCV 3.3.1 without CUDA support.
+find_package(OpenCV 3.3.1 REQUIRED
+  CONFIG
+  PATHS /usr/local /usr
+  NO_DEFAULT_PATH
+)
 
 ###################################
 ## catkin specific configuration ##
@@ -95,8 +44,8 @@ set (CMAKE_CXX_STANDARD 14)
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
 
 set(
-	CUDA_NVCC_FLAGS
-	${CUDA_NVCC_FLAGS}; 
+  CUDA_NVCC_FLAGS
+  ${CUDA_NVCC_FLAGS}; 
     -O3 -gencode arch=compute_53,code=sm_53
 )
 
@@ -107,11 +56,6 @@ include_directories(
   include
   ${catkin_INCLUDE_DIRS}
 )
-
-## Declare a C++ library
-# add_library(caffe_ros
-#   src/${PROJECT_NAME}/caffe_ros.cpp
-# )
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
@@ -134,7 +78,6 @@ target_link_libraries(caffe_ros_node
   nvinfer
   opencv_core
   opencv_imgproc
-  opencv_gpu
   opencv_highgui
 )
 

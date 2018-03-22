@@ -3,7 +3,7 @@
     <arg name="model_path" />
     <arg name="input_layer"  default="data" />
     <arg name="output_layer" default="softmax" />
-    <arg name="use_fp16"     default="true" />
+    <arg name="data_type"    default="fp16" />
     <arg name="mean"         default="0" />
     <arg name="debug_mode"   default="false" />
 
@@ -24,7 +24,7 @@
         <arg name="model_path"    value="$(arg model_path)" />
         <arg name="input_layer"   value="$(arg input_layer)" />
         <arg name="output_layer"  value="$(arg output_layer)" />
-        <arg name="use_fp16"      value="$(arg use_fp16)" />
+        <arg name="data_type"     value="$(arg data_type)" />
         <arg name="mean"          value="$(arg mean)" />
         <arg name="debug_mode"    value="$(arg debug_mode)" />
         <arg name="device"        value="$(arg device)" />

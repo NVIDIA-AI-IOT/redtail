@@ -7,7 +7,10 @@
 #include <ros/ros.h>
 #include <NvInfer.h>
 #include <opencv2/opencv.hpp>
-#include <opencv2/gpu/gpu.hpp>
+// REVIEW alexeyk: OpenCV that comes with JetPack 3.2 is compiled without CUDA support.
+// #include <opencv2/core/cuda.hpp>
+
+#include "int8_calibrator.h"
 
 namespace caffe_ros
 {
@@ -15,14 +18,12 @@ namespace caffe_ros
 class TensorNet
 {
 public:
-    using ConstStr = const std::string;
-    
     TensorNet();
     virtual ~TensorNet();
 
-    void loadNetwork(ConstStr& prototxtPath, ConstStr& modelPath,
-                     ConstStr& inputBlob = "data", ConstStr& outputBlob = "prob",
-                     bool useFP16 = true, bool use_cached_model = true);
+    void loadNetwork(ConstStr& prototxt_path, ConstStr& model_path,
+                     ConstStr& input_blob, ConstStr& output_blob,
+                     nvinfer1::DataType data_type, bool use_cached_model);
 
     void forward(const unsigned char* input, size_t w, size_t h, size_t c, const std::string& encoding);
 
@@ -36,15 +37,15 @@ public:
 
     const float* getOutput() const { return out_h_; }
 
-    void setInputFormat(ConstStr& inputFormat)
+    void setInputFormat(ConstStr& input_format)
     {
-        if (inputFormat == "BGR")
+        if (input_format == "BGR")
             inp_fmt_ = InputFormat::BGR;
-        else if (inputFormat == "RGB")
+        else if (input_format == "RGB")
             inp_fmt_ = InputFormat::RGB;
         else
         {
-            ROS_FATAL("Input format %s is not supported. Supported formats: BGR and RGB", inputFormat.c_str());
+            ROS_FATAL("Input format %s is not supported. Supported formats: BGR and RGB", input_format.c_str());
             ros::shutdown();
         }
     }
@@ -68,16 +69,12 @@ public:
         context_->setProfiler(on ? &s_profiler : nullptr);
     }
 
+    void createInt8Calibrator(ConstStr& int8_calib_src, ConstStr& int8_calib_cache);
+
 protected:
 
-    // Formats of the input layer. BGR is usually used by most of the frameworks that use OpenCV.
-    enum class InputFormat
-    {
-        BGR = 0,
-        RGB
-    };
-
-    void profileModel(ConstStr& prototxtPath, ConstStr& modelPath, bool useFP16, ConstStr& outputBlob, std::ostream& model);
+    void profileModel(ConstStr& prototxt_path, ConstStr& model_path, nvinfer1::DataType data_type,
+                      ConstStr& input_blob, ConstStr& output_blob, std::ostream& model);
 
     class Logger : public nvinfer1::ILogger
     {
@@ -109,9 +106,7 @@ protected:
 
     cv::Mat in_h_;
     cv::Mat in_final_h_;
-    // cv::gpu::GpuMat m_inOrigD;
-    // cv::gpu::GpuMat m_inD;
-    cv::gpu::GpuMat in_d_;
+    float* in_d_  = nullptr;
     float* out_h_ = nullptr;
     float* out_d_ = nullptr;
 
@@ -121,7 +116,12 @@ protected:
     // This is a separate flag from ROS_DEBUG to enable only specific profiling
     // of data preparation and DNN feed forward.
     bool debug_mode_ = false;
+
+    std::unique_ptr<Int8EntropyCalibrator> int8_calib_;
 };
+
+nvinfer1::DataType parseDataType(const std::string& src);
+std::string        toString(nvinfer1::DataType src);
 
 }
 

@@ -6,6 +6,8 @@ This project contains deep neural networks, computer vision and control code, ha
 
 The project's deep neural networks (DNNs) can be trained from scratch using publicly available data. A few [pre-trained DNNs](../blob/master/models/pretrained/) are also available as a part of this project. In case you want to train TrailNet DNN from scratch, follow the steps on [this page](./Models).
 
+The project also contains [Stereo DNN](../blob/master/stereoDNN/) models and runtime which allow to estimate depth from stereo camera on NVIDIA platforms.
+
 ## References and Demos
 * [arXiv paper](https://arxiv.org/abs/1705.02550)
 * GTC 2017 talk: [slides](http://on-demand.gputechconf.com/gtc/2017/presentation/s7172-nikolai-smolyanskiy-autonomous-drone-navigation-with-deep-learning.pdf), [video](http://on-demand.gputechconf.com/gtc/2017/video/s7172-smolyanskiy-autonomous-drone-navigation-with-deep-learning%20(1).PNG.mp4)
@@ -14,8 +16,15 @@ The project's deep neural networks (DNNs) can be trained from scratch using publ
 * [Demo video showing generalization to ground vehicle control and other environments](https://www.youtube.com/watch?v=ZKF5N8xUxfw)
 
 # News
-* **2018-02-15**: added support for the TBS discovery platform.
-  * Step by step instructions on how to assemble the [TBS discovery drone](../../wiki/Skypad-TBS-Discovery-Setup).
+**GTC 2018**: in case you will be at [GTC 2018](https://www.nvidia.com/en-us/gtc/) next week, you may be interested in attending our [Stereo DNN session](https://2018gputechconf.smarteventscloud.com/connect/sessionDetail.ww?SESSION_ID=152050). We'll be happy to chat about redtail in general and some of the interesting work that we've been doing.
+
+* **2018-03-22**: redtail 2.0.
+  * Added Stereo DNN models and inference library (TensorFlow/TensorRT). For more details, see the [README](../blob/master/stereoDNN/).
+  * Migrated to JetPack 3.2. This change brings latest components such as CUDA 9.0, cuDNN 7.0, TensorRT 3.0, OpenCV 3.3 and others to Jetson platform. Note that this is a breaking change.
+  * Added support for INT8 inference. This enables fast inference on devices that have hardware implementation of INT8 instructions. More details are on [our wiki](../../wiki/ROS-Nodes#int8-inference).
+
+* **2018-02-15**: added support for the TBS Discovery platform.
+  * Step by step instructions on how to assemble the [TBS Discovery drone](../../wiki/Skypad-TBS-Discovery-Setup).
   * Instructions on how to attach and use a [ZED stereo camera](https://www.stereolabs.com/zed/).
   * Detailed instructions on how to calibrate, test and fly the drone.
 

@@ -4,74 +4,99 @@
     rostest caffe_ros tests_basic.launch
     Use parameters to specify values for the arguments, for example:
 
+    1. Simple version:
+
+rostest caffe_ros tests_basic.launch test_data_dir:=/data/src/redtail/ros/packages/caffe_ros/tests/data \
+    model_dir:=/data/src/redtail/models/pretrained
+
+    2. Advanced version:
+
 export REDTAIL_TEST_DIR=/data/src/redtail/ros/packages/caffe_ros/tests/data
 export REDTAIL_MODEL_DIR=/data/src/redtail/models/pretrained
-rostest caffe_ros tests_basic.launch test_data_dir:=$REDTAIL_TEST_DIR \
+rostest caffe_ros tests_basic.launch test_data_dir:=$REDTAIL_TEST_DIR model_dir:=$REDTAIL_MODEL_DIR \
     trail_prototxt_path:=$REDTAIL_MODEL_DIR/TrailNet_SResNet-18.prototxt trail_model_path:=$REDTAIL_MODEL_DIR/TrailNet_SResNet-18.caffemodel \
     object_prototxt_path:=$REDTAIL_MODEL_DIR/yolo-relu.prototxt object_model_path:=$REDTAIL_MODEL_DIR/yolo-relu.caffemodel
 
      -->
     <arg name="test_data_dir" />
-    <arg name="trail_prototxt_path" default="/data/src/redtail/models/pretrained/TrailNet_SResNet-18.prototxt" />
-    <arg name="trail_model_path"    default="/data/src/redtail/models/pretrained/TrailNet_SResNet-18.caffemodel" />
+    <arg name="model_dir" />
+    <arg name="trail_prototxt_path" default="$(arg model_dir)/TrailNet_SResNet-18.prototxt" />
+    <arg name="trail_model_path"    default="$(arg model_dir)/TrailNet_SResNet-18.caffemodel" />
     <arg name="trail_output_layer"  default="out" />
 
-    <arg name="object_prototxt_path" default="/home/ubuntu/models/yolo-relu.prototxt" />
-    <arg name="object_model_path"    default="/home/ubuntu/models/yolo-relu.caffemodel" />
+    <arg name="object_prototxt_path" default="$(arg model_dir)/yolo-relu.prototxt" />
+    <arg name="object_model_path"    default="$(arg model_dir)/yolo-relu.caffemodel" />
     <arg name="object_output_layer"  default="fc25" />
-    
-    <node pkg="caffe_ros" type="caffe_ros_node" name="trails_dnn">
-        <param name="camera_topic"  value="/camera_trails/image_raw" />
-        <param name="prototxt_path" value="$(arg trail_prototxt_path)" />
-        <param name="model_path"    value="$(arg trail_model_path)" />
-        <param name="input_layer"   value="data" />
-        <param name="output_layer"  value="$(arg trail_output_layer)" />
-        <param name="use_fp16"      value="false" />
-        <param name="use_cached_model" value="false" />
-    </node>
 
-    <node pkg="caffe_ros" type="caffe_ros_node" name="trails_dnn_fp16">
-        <param name="camera_topic"  value="/camera_trails_fp16/image_raw" />
-        <param name="prototxt_path" value="$(arg trail_prototxt_path)" />
-        <param name="model_path"    value="$(arg trail_model_path)" />
-        <param name="input_layer"   value="data" />
-        <param name="output_layer"  value="$(arg trail_output_layer)" />
-        <param name="use_fp16"      value="true" />
-        <param name="use_cached_model" value="false" />
-    </node>
+    <arg name="int8_calib_cache_path" default="$(arg test_data_dir)/trailnet_int8_calib.cache" />
 
-    <node pkg="caffe_ros" type="caffe_ros_node" name="object_dnn">
-        <param name="camera_topic"  value="/camera_object/image_raw" />
-        <param name="prototxt_path" value="$(arg object_prototxt_path)" />
-        <param name="model_path"    value="$(arg object_model_path)" />
-        <param name="input_layer"   value="data" />
-        <param name="output_layer"  value="$(arg object_output_layer)" />
-        <param name="inp_scale"     value="0.00390625" />
-        <param name="inp_fmt"       value="RGB" />
-        <param name="post_proc"     value="YOLO" />
-        <param name="obj_det_threshold" value="0.2" />
-        <param name="iou_threshold"     value="0.2" />
-        <param name="use_fp16"      value="false" />
-        <param name="max_rate_hz"   value="1" />
-        <param name="use_cached_model" value="false" />
-    </node>
+    <group ns='trailnet'>
+        <node pkg="caffe_ros" type="caffe_ros_node" name="dnn">
+            <param name="camera_topic"  value="/trailnet/camera/image_raw" />
+            <param name="prototxt_path" value="$(arg trail_prototxt_path)" />
+            <param name="model_path"    value="$(arg trail_model_path)" />
+            <param name="input_layer"   value="data" />
+            <param name="output_layer"  value="$(arg trail_output_layer)" />
+            <param name="data_type"     value="fp32" />
+            <param name="use_cached_model" value="false" />
+        </node>
 
-    <node pkg="caffe_ros" type="caffe_ros_node" name="object_dnn_fp16">
-        <param name="camera_topic"  value="/camera_object_fp16/image_raw" />
-        <param name="prototxt_path" value="$(arg object_prototxt_path)" />
-        <param name="model_path"    value="$(arg object_model_path)" />
-        <param name="input_layer"   value="data" />
-        <param name="output_layer"  value="$(arg object_output_layer)" />
-        <param name="inp_scale"     value="0.00390625" />
-        <param name="inp_fmt"       value="RGB" />
-        <param name="post_proc"     value="YOLO" />
-        <param name="obj_det_threshold" value="0.2" />
-        <param name="iou_threshold"     value="0.2" />
-        <param name="use_fp16"      value="true" />
-        <param name="max_rate_hz"   value="1" />
-        <param name="use_cached_model" value="false" />
-    </node>
-    
+        <node pkg="caffe_ros" type="caffe_ros_node" name="dnn_fp16">
+            <param name="camera_topic"  value="/trailnet/camera_fp16/image_raw" />
+            <param name="prototxt_path" value="$(arg trail_prototxt_path)" />
+            <param name="model_path"    value="$(arg trail_model_path)" />
+            <param name="input_layer"   value="data" />
+            <param name="output_layer"  value="$(arg trail_output_layer)" />
+            <param name="data_type"     value="fp16" />
+            <param name="use_cached_model" value="false" />
+        </node>
+
+        <node pkg="caffe_ros" type="caffe_ros_node" name="dnn_int8">
+            <param name="camera_topic"  value="/trailnet/camera_int8/image_raw" />
+            <param name="prototxt_path" value="$(arg trail_prototxt_path)" />
+            <param name="model_path"    value="$(arg trail_model_path)" />
+            <param name="input_layer"   value="data" />
+            <param name="output_layer"  value="$(arg trail_output_layer)" />
+            <param name="data_type"     value="int8" />
+            <param name="use_cached_model" value="false" />
+            <param name="int8_calib_cache" value="$(arg int8_calib_cache_path)" />
+        </node>
+    </group>
+
+    <group ns='yolo'>
+        <node pkg="caffe_ros" type="caffe_ros_node" name="dnn">
+            <param name="camera_topic"  value="/yolo/camera/image_raw" />
+            <param name="prototxt_path" value="$(arg object_prototxt_path)" />
+            <param name="model_path"    value="$(arg object_model_path)" />
+            <param name="input_layer"   value="data" />
+            <param name="output_layer"  value="$(arg object_output_layer)" />
+            <param name="inp_scale"     value="0.00390625" />
+            <param name="inp_fmt"       value="RGB" />
+            <param name="post_proc"     value="YOLO" />
+            <param name="obj_det_threshold" value="0.2" />
+            <param name="iou_threshold"     value="0.2" />
+            <param name="data_type"     value="fp32" />
+            <param name="max_rate_hz"   value="1" />
+            <param name="use_cached_model" value="false" />
+        </node>
+
+        <node pkg="caffe_ros" type="caffe_ros_node" name="dnn_fp16">
+            <param name="camera_topic"  value="/yolo/camera_fp16/image_raw" />
+            <param name="prototxt_path" value="$(arg object_prototxt_path)" />
+            <param name="model_path"    value="$(arg object_model_path)" />
+            <param name="input_layer"   value="data" />
+            <param name="output_layer"  value="$(arg object_output_layer)" />
+            <param name="inp_scale"     value="0.00390625" />
+            <param name="inp_fmt"       value="RGB" />
+            <param name="post_proc"     value="YOLO" />
+            <param name="obj_det_threshold" value="0.2" />
+            <param name="iou_threshold"     value="0.2" />
+            <param name="data_type"     value="fp16" />
+            <param name="max_rate_hz"   value="1" />
+            <param name="use_cached_model" value="false" />
+        </node>
+    </group>
+
     <test pkg="caffe_ros" test-name="CaffeRosTests" type="caffe_ros_tests" time-limit="300.0">
         <param name="test_data_dir" value="$(arg test_data_dir)" />
     </test>
