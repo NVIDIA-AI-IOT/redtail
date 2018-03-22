@@ -4,9 +4,9 @@ Autonomous navigation for drones and ground vehicles using deep learning. Refer 
 
 This project contains deep neural networks, computer vision and control code, hardware instructions and other artifacts that allow users to build a drone or a ground vehicle which can autonomously navigate through highly unstructured environments like forest trails, sidewalks, etc. Our TrailNet DNN for visual navigation is running on NVIDIA's Jetson embedded platform. Our [arXiv paper](https://arxiv.org/abs/1705.02550) describes TrailNet and other runtime modules in detail.
 
-The project's deep neural networks (DNNs) can be trained from scratch using publicly available data. A few [pre-trained DNNs](../blob/master/models/pretrained/) are also available as a part of this project. In case you want to train TrailNet DNN from scratch, follow the steps on [this page](./Models).
+The project's deep neural networks (DNNs) can be trained from scratch using publicly available data. A few [pre-trained DNNs](../master/models/pretrained/) are also available as a part of this project. In case you want to train TrailNet DNN from scratch, follow the steps on [this page](../../wiki/Models).
 
-The project also contains [Stereo DNN](../blob/master/stereoDNN/) models and runtime which allow to estimate depth from stereo camera on NVIDIA platforms.
+The project also contains [Stereo DNN](../master/stereoDNN/) models and runtime which allow to estimate depth from stereo camera on NVIDIA platforms.
 
 ## References and Demos
 * [arXiv paper](https://arxiv.org/abs/1705.02550)
@@ -19,7 +19,7 @@ The project also contains [Stereo DNN](../blob/master/stereoDNN/) models and run
 **GTC 2018**: in case you will be at [GTC 2018](https://www.nvidia.com/en-us/gtc/) next week, you may be interested in attending our [Stereo DNN session](https://2018gputechconf.smarteventscloud.com/connect/sessionDetail.ww?SESSION_ID=152050). We'll be happy to chat about redtail in general and some of the interesting work that we've been doing.
 
 * **2018-03-22**: redtail 2.0.
-  * Added Stereo DNN models and inference library (TensorFlow/TensorRT). For more details, see the [README](../blob/master/stereoDNN/).
+  * Added Stereo DNN models and inference library (TensorFlow/TensorRT). For more details, see the [README](../master/stereoDNN/).
   * Migrated to JetPack 3.2. This change brings latest components such as CUDA 9.0, cuDNN 7.0, TensorRT 3.0, OpenCV 3.3 and others to Jetson platform. Note that this is a breaking change.
   * Added support for INT8 inference. This enables fast inference on devices that have hardware implementation of INT8 instructions. More details are on [our wiki](../../wiki/ROS-Nodes#int8-inference).
 
