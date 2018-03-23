@@ -9,7 +9,8 @@ The project's deep neural networks (DNNs) can be trained from scratch using publ
 The project also contains [Stereo DNN](../master/stereoDNN/) models and runtime which allow to estimate depth from stereo camera on NVIDIA platforms.
 
 ## References and Demos
-* [arXiv paper](https://arxiv.org/abs/1705.02550)
+* [TrailNet Forest Drone Navigation, arXiv paper](https://arxiv.org/abs/1705.02550)
+* [Stereo DNN demo, 2018](https://youtu.be/vv3bHEVnS1w)
 * GTC 2017 talk: [slides](http://on-demand.gputechconf.com/gtc/2017/presentation/s7172-nikolai-smolyanskiy-autonomous-drone-navigation-with-deep-learning.pdf), [video](http://on-demand.gputechconf.com/gtc/2017/video/s7172-smolyanskiy-autonomous-drone-navigation-with-deep-learning%20(1).PNG.mp4)
 * [Demo video showing 250 m autonomous flight, DNN activation and control](https://www.youtube.com/watch?v=H7Ym3DMSGms)
 * [Demo video showing our record making 1 kilometer autonomous flight](https://www.youtube.com/watch?v=USYlt9t0lZY)
