@@ -221,7 +221,7 @@ public:
         assert(workspace_used_bytes <= workspace_bytes_);
 
         CHECK(status = cudnnConvolutionBackwardData(cudnn_,  &Consts::kOne, w_desc_, kernel_weights_d_,
-                                                    y_desc_, inputs[0], c_desc_, best_algo_,
+                                                    y_desc_, py, c_desc_, best_algo_,
                                                     static_cast<uint8_t*>(workspace) + workspace_used_bytes, workspace_bytes_ - workspace_used_bytes,
                                                     &Consts::kZero, x_desc_, outputs[0]));
 
