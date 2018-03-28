@@ -1,5 +1,5 @@
 # Stereo DNN TensorRT inference library
-The goal of this project is to enable inference for [NVIDIA Stereo DNN](https://arxiv.org/) TensorFlow models on Jetson as well as other platforms supported by NVIDIA TensorRT library.
+The goal of this project is to enable inference for [NVIDIA Stereo DNN](https://arxiv.org/abs/1803.09719) TensorFlow models on Jetson as well as other platforms supported by NVIDIA TensorRT library. You can see the inference on KITTI dataset video demo [here](https://youtu.be/0FPQdVOYoAU)
 
 This is a 2-step process:
 1. Convert the TensorFlow model to TensorRT C++ API model. This step is performed only once for each model and can be done on any environment like user's desktop.
