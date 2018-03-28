@@ -1,6 +1,6 @@
 # NVIDIA Redtail project
 
-Autonomous navigation components for drones and ground vehicles using deep learning. Refer to [wiki](https://github.com/NVIDIA-Jetson/redtail/wiki) for more information on how to get started.
+Autonomous visual navigation components for drones and ground vehicles using deep learning. Refer to [wiki](https://github.com/NVIDIA-Jetson/redtail/wiki) for more information on how to get started.
 
 This project contains deep neural networks, computer vision and control code, hardware instructions and other artifacts that allow users to build a drone or a ground vehicle which can autonomously navigate through highly unstructured environments like forest trails, sidewalks, etc. Our TrailNet DNN for visual navigation is running on NVIDIA's Jetson embedded platform. Our [arXiv paper](https://arxiv.org/abs/1705.02550) describes TrailNet and other runtime modules in detail.
 
