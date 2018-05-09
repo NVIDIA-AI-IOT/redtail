@@ -10,15 +10,15 @@ The project also contains [Stereo DNN](../master/stereoDNN/) models and runtime 
 
 ## References and Demos
 * [Stereo DNN, CVPR18 paper](https://arxiv.org/abs/1803.09719), [Stereo DNN video demo](https://youtu.be/0FPQdVOYoAU)
-* [TrailNet Forest Drone Navigation, IROS17 paper](https://arxiv.org/abs/1705.02550), [TrailNet DNN video demo](https://www.youtube.com/watch?v=ZKF5N8xUxfw)
+* [TrailNet Forest Drone Navigation, IROS17 paper](https://arxiv.org/abs/1705.02550), [TrailNet DNN video demo](https://youtu.be/H7Ym3DMSGms)
 * GTC 2017 talk: [slides](http://on-demand.gputechconf.com/gtc/2017/presentation/s7172-nikolai-smolyanskiy-autonomous-drone-navigation-with-deep-learning.pdf), [video](http://on-demand.gputechconf.com/gtc/2017/video/s7172-smolyanskiy-autonomous-drone-navigation-with-deep-learning%20(1).PNG.mp4)
-* [Demo video showing 250m autonomous flight with TrailNet DNN flying the drone](https://www.youtube.com/watch?v=H7Ym3DMSGms)
-* [Demo video showing our 1 kilometer autonomous drone flight with TrailNet DNN](https://www.youtube.com/watch?v=USYlt9t0lZY)
+* [Demo video showing 250m autonomous flight with TrailNet DNN flying the drone](https://youtu.be/H7Ym3DMSGms)
+* [Demo video showing our 1 kilometer autonomous drone flight with TrailNet DNN](https://youtu.be/USYlt9t0lZY)
 * [Demo video showing TrailNet DNN driving a robotic rover around the office](https://youtu.be/lOmT4yWcJrM)
-* [Demo video showing TrailNet generalization to ground vehicles and other environments](https://www.youtube.com/watch?v=ZKF5N8xUxfw)
+* [Demo video showing TrailNet generalization to ground vehicles and other environments](https://youtu.be/ZKF5N8xUxfw)
 
 # News
-**GTC 2018**: in case you will be at [GTC 2018](https://www.nvidia.com/en-us/gtc/) next week, you may be interested in attending our [Stereo DNN session](https://2018gputechconf.smarteventscloud.com/connect/sessionDetail.ww?SESSION_ID=152050). We'll be happy to chat about redtail in general and some of the interesting work that we've been doing.
+**GTC 2018**: Here is our [Stereo DNN session page at GTC18](https://2018gputechconf.smarteventscloud.com/connect/sessionDetail.ww?SESSION_ID=152050) and [the recorded video presentation](http://on-demand.gputechconf.com/gtc/2018/video/S8660/)
 
 * **2018-03-22**: redtail 2.0.
   * Added Stereo DNN models and inference library (TensorFlow/TensorRT). For more details, see the [README](../master/stereoDNN/).
