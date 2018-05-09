@@ -18,7 +18,7 @@ The project also contains [Stereo DNN](../master/stereoDNN/) models and runtime 
 * [Demo video showing TrailNet generalization to ground vehicles and other environments](https://youtu.be/ZKF5N8xUxfw)
 
 # News
-**GTC 2018**: Here is our [Stereo DNN session page at GTC18](https://2018gputechconf.smarteventscloud.com/connect/sessionDetail.ww?SESSION_ID=152050) and [the recorded video presentation](http://on-demand.gputechconf.com/gtc/2018/video/S8660/)
+* **GTC 2018**: Here is our [Stereo DNN session page at GTC18](https://2018gputechconf.smarteventscloud.com/connect/sessionDetail.ww?SESSION_ID=152050) and [the recorded video presentation](http://on-demand.gputechconf.com/gtc/2018/video/S8660/)
 
 * **2018-03-22**: redtail 2.0.
   * Added Stereo DNN models and inference library (TensorFlow/TensorRT). For more details, see the [README](../master/stereoDNN/).
