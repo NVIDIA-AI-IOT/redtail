@@ -3,7 +3,7 @@
     <arg name="model_path" />
     <arg name="input_layer"  default="data" />
     <arg name="output_layer" default="prob" />
-    <arg name="use_fp16"     default="true" />
+    <arg name="data_type"    default="fp16" />
     <arg name="mean"         default="0" />
     <arg name="debug_mode"   default="false" />
 
@@ -29,7 +29,7 @@
         <param name="model_path"    value="$(arg model_path)" />
         <param name="input_layer"   value="$(arg input_layer)" />
         <param name="output_layer"  value="$(arg output_layer)" />
-        <param name="use_fp16"      value="$(arg use_fp16)" />
+        <param name="data_type"     value="$(arg data_type)" />
         <param name="mean"          value="$(arg mean)" />
         <param name="debug_mode"    value="$(arg debug_mode)" />
     </node>

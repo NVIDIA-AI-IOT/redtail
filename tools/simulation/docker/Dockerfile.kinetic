@@ -1,4 +1,4 @@
-FROM nvidia/cuda:8.0-cudnn6-devel-ubuntu16.04
+FROM nvidia/cuda:9.0-cudnn7-devel-ubuntu16.04
 
 # Copyright (c) 2017, NVIDIA CORPORATION. All rights reserved.
 # Full license terms provided in LICENSE.md file.
@@ -138,7 +138,7 @@ RUN echo 'source /opt/ros/kinetic/setup.bash' >> ${HOME}/.bashrc
 # Install OpenCV with CUDA support.
 WORKDIR ${HOME}
 RUN git clone https://github.com/opencv/opencv.git && cd opencv \
-    && git checkout 2.4.13.2                \
+    && git checkout 3.3.1                   \
     && mkdir build && cd build              \
     && cmake -D CMAKE_BUILD_TYPE=RELEASE    \
         -D CMAKE_INSTALL_PREFIX=/usr/local  \
@@ -160,7 +160,8 @@ WORKDIR ${HOME}
 COPY ${TENSORRT_TAR_FILE} ${HOME}
 
 ENV TENSORRT_BASE_DIR /opt/tensorrt
-ENV TENSORRT_DIR      ${TENSORRT_BASE_DIR}/TensorRT-2.1.2
+ENV TENSORRT_VER      3.0.2
+ENV TENSORRT_DIR      ${TENSORRT_BASE_DIR}/TensorRT-${TENSORRT_VER}
 
 RUN mkdir ${TENSORRT_BASE_DIR} \
     && tar -xf ${TENSORRT_TAR_FILE} -C ${TENSORRT_BASE_DIR} \

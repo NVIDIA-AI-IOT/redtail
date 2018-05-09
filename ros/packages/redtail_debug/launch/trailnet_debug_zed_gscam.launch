@@ -7,7 +7,7 @@
     <arg name="model_path"    default="/home/nvidia/redtail/models/pretrained/TrailNet_SResNet-18.caffemodel" />
     <arg name="input_layer"  default="data" />
     <arg name="output_layer" default="out" />
-    <arg name="use_fp16"     default="true" />
+    <arg name="data_type"    default="fp16" />
 
     <arg name="frame_id"   default="/tf_frame" />
 
@@ -35,7 +35,7 @@
         <param name="model_path"    value="$(arg model_path)" />
         <param name="input_layer"   value="$(arg input_layer)" />
         <param name="output_layer"  value="$(arg output_layer)" />
-        <param name="use_fp16"      value="$(arg use_fp16)" />
+        <param name="data_type"     value="$(arg data_type)" />
     </node>
 
     <node pkg="redtail_debug" type="redtail_debug_node" name="redtail_debug" output="screen">
