@@ -9,12 +9,13 @@ The project's deep neural networks (DNNs) can be trained from scratch using publ
 The project also contains [Stereo DNN](../master/stereoDNN/) models and runtime which allow to estimate depth from stereo camera on NVIDIA platforms.
 
 ## References and Demos
-* Stereo DNN, GTC18 talk: [arXiv paper](https://arxiv.org/abs/1803.09719), [Stereo DNN video demo](https://youtu.be/0FPQdVOYoAU)
-* [TrailNet Forest Drone Navigation, arXiv paper](https://arxiv.org/abs/1705.02550)
+* [Stereo DNN, CVPR18 paper](https://arxiv.org/abs/1803.09719), [Stereo DNN video demo](https://youtu.be/0FPQdVOYoAU)
+* [TrailNet Forest Drone Navigation, IROS17 paper](https://arxiv.org/abs/1705.02550), [TrailNet DNN video demo](https://www.youtube.com/watch?v=ZKF5N8xUxfw)
 * GTC 2017 talk: [slides](http://on-demand.gputechconf.com/gtc/2017/presentation/s7172-nikolai-smolyanskiy-autonomous-drone-navigation-with-deep-learning.pdf), [video](http://on-demand.gputechconf.com/gtc/2017/video/s7172-smolyanskiy-autonomous-drone-navigation-with-deep-learning%20(1).PNG.mp4)
-* [Demo video showing 250 m autonomous flight, DNN activation and control](https://www.youtube.com/watch?v=H7Ym3DMSGms)
-* [Demo video showing our record making 1 kilometer autonomous flight](https://www.youtube.com/watch?v=USYlt9t0lZY)
-* [Demo video showing generalization to ground vehicle control and other environments](https://www.youtube.com/watch?v=ZKF5N8xUxfw)
+* [Demo video showing 250m autonomous flight with TrailNet DNN flying the drone](https://www.youtube.com/watch?v=H7Ym3DMSGms)
+* [Demo video showing our 1 kilometer autonomous drone flight with TrailNet DNN](https://www.youtube.com/watch?v=USYlt9t0lZY)
+* [Demo video showing TrailNet DNN driving a robotic rover around the office](https://youtu.be/lOmT4yWcJrM)
+* [Demo video showing TrailNet generalization to ground vehicles and other environments](https://www.youtube.com/watch?v=ZKF5N8xUxfw)
 
 # News
 **GTC 2018**: in case you will be at [GTC 2018](https://www.nvidia.com/en-us/gtc/) next week, you may be interested in attending our [Stereo DNN session](https://2018gputechconf.smarteventscloud.com/connect/sessionDetail.ww?SESSION_ID=152050). We'll be happy to chat about redtail in general and some of the interesting work that we've been doing.
