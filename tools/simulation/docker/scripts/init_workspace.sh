@@ -19,6 +19,7 @@ source devel/setup.bash
 
 # Install gscam ROS package.
 cd ${HOME}
+apt-get install -y ros-kinetic-camera-info-manager ros-kinetic-camera-calibration-parsers ros-kinetic-image-transport
 git clone https://github.com/ros-drivers/gscam.git
 # Create symlink to catkin workspace.
 ln -s ${HOME}/gscam ${CATKIN_WS}/src/
@@ -28,9 +29,7 @@ catkin_make -DGSTREAMER_VERSION_1_x=On
 
 # angles package used in px4 controller.
 cd ${HOME}
-git clone https://github.com/ros/angles.git
-# Create symlink to catkin workspace.
-ln -s ${HOME}/angles/angles ${CATKIN_WS}/src/
+apt-get install -y ros-kinetic-angles
 
 # Not getting Redtail sources to give an option to use mapped volume when creating a container.
 # caffe_ros ROS node might need to be built with this:
