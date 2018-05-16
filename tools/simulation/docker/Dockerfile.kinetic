@@ -4,7 +4,7 @@ FROM nvidia/cuda:9.0-cudnn7-devel-ubuntu16.04
 # Full license terms provided in LICENSE.md file.
 
 # Build with:
-# docker build -t nvidia-redtail-sim:kinetic --build-arg TENSORRT_TAR_FILE=<TensorRT_tar_name> -f Dockerfile.kinetic .
+# docker build -t nvidia-redtail-sim:kinetic-v2 --build-arg TENSORRT_TAR_FILE=<TensorRT_tar_name> -f Dockerfile.kinetic .
 
 ENV HOME /root
 
@@ -22,8 +22,6 @@ RUN apt-get update && apt-get -y --no-install-recommends install \
         ccache \
         cmake \
         curl \
-        gcc-5 \ 
-        g++-5 \
         genromfs \
         git \
         gosu \
@@ -53,17 +51,13 @@ RUN apt-get update && apt-get -y --no-install-recommends install \
         software-properties-common \
         sudo \
         unzip \
-        vim-common \
         xsltproc \
         wget \
         zip \
     && apt-get -y autoremove \
     && apt-get clean autoclean \
-    # Make GCC 5 default
-    && update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-5 60 --slave /usr/bin/g++ g++ /usr/bin/g++-5 \
     # pip
-    && pip install --upgrade pip \
-    && pip install setuptools \
+    && pip install setuptools wheel \
     # coveralls code coverage reporting
     && pip install cpp-coveralls \
     # jinja template generation
@@ -136,13 +130,14 @@ RUN geographiclib-get-geoids egm96-5 \
 RUN echo 'source /opt/ros/kinetic/setup.bash' >> ${HOME}/.bashrc
 
 # Install OpenCV with CUDA support.
+# REVIEW alexeyk: JetPack 3.2 comes with OpenCV 3.3.1 _without_ CUDA support.
 WORKDIR ${HOME}
 RUN git clone https://github.com/opencv/opencv.git && cd opencv \
     && git checkout 3.3.1                   \
     && mkdir build && cd build              \
     && cmake -D CMAKE_BUILD_TYPE=RELEASE    \
         -D CMAKE_INSTALL_PREFIX=/usr/local  \
-        -D WITH_CUDA=ON                     \
+        -D WITH_CUDA=OFF                     \
         -D WITH_OPENCL=OFF                  \
         -D ENABLE_FAST_MATH=1               \
         -D CUDA_FAST_MATH=1                 \
@@ -160,7 +155,7 @@ WORKDIR ${HOME}
 COPY ${TENSORRT_TAR_FILE} ${HOME}
 
 ENV TENSORRT_BASE_DIR /opt/tensorrt
-ENV TENSORRT_VER      3.0.2
+ENV TENSORRT_VER      3.0.4
 ENV TENSORRT_DIR      ${TENSORRT_BASE_DIR}/TensorRT-${TENSORRT_VER}
 
 RUN mkdir ${TENSORRT_BASE_DIR} \
