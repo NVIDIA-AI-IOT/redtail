@@ -8,6 +8,8 @@ The project's deep neural networks (DNNs) can be trained from scratch using publ
 
 The project also contains [Stereo DNN](../master/stereoDNN/) models and runtime which allow to estimate depth from stereo camera on NVIDIA platforms.
 
+**CVPR 2018**: we will present our work at [CVPR 2018](http://cvpr2018.thecvf.com/) conference as a part of [Workshop on Autonomous Driving](http://www.wad.ai/index.html). Feel free to stop by and chat.
+
 ## References and Demos
 * [Stereo DNN, CVPR18 paper](https://arxiv.org/abs/1803.09719), [Stereo DNN video demo](https://youtu.be/0FPQdVOYoAU)
 * [TrailNet Forest Drone Navigation, IROS17 paper](https://arxiv.org/abs/1705.02550), [TrailNet DNN video demo](https://youtu.be/H7Ym3DMSGms)
@@ -18,6 +20,10 @@ The project also contains [Stereo DNN](../master/stereoDNN/) models and runtime 
 * [Demo video showing TrailNet generalization to ground vehicles and other environments](https://youtu.be/ZKF5N8xUxfw)
 
 # News
+* **2018-06-04**: CVPR 2018 workshop. Fast version of Stereo DNN.
+  * Presenting our work at [CVPR 2018](http://cvpr2018.thecvf.com/) conference as a part of [Workshop on Autonomous Driving](http://www.wad.ai/index.html).
+  * Added fast version of Stereo DNN model based on ResNet18 2D model. The model runs at 10fps on Jetson TX2. See [README](../master/stereoDNN/) for details and check out updated [sample_app](../master/stereoDNN/sample_app).
+
 * **GTC 2018**: Here is our [Stereo DNN session page at GTC18](https://2018gputechconf.smarteventscloud.com/connect/sessionDetail.ww?SESSION_ID=152050) and [the recorded video presentation](http://on-demand.gputechconf.com/gtc/2018/video/S8660/)
 
 * **2018-03-22**: redtail 2.0.

@@ -42,6 +42,11 @@ INetworkDefinition* createNVTiny513x161Network(IBuilder& builder, IPluginContain
 INetworkDefinition* createResNet18_1025x321Network(IBuilder& builder, IPluginContainer& plugin_factory,
                                                    DimsCHW img_dims, const weight_map& weights, DataType data_type,
                                                    ILogger& log);
+
+// ResNet18_2D DNN: 513x256 input, 96 max disparity.
+INetworkDefinition* createResNet18_2D_513x257Network(IBuilder& builder, IPluginContainer& plugin_factory,
+                                                     DimsCHW img_dims, const weight_map& weights, DataType data_type, ILogger& log);
+
 } }
 
 class Logger : public nvinfer1::ILogger
@@ -126,7 +131,7 @@ int main(int argc, char** argv)
     {
         printf("\n"
                "Usage  : nvstereo_sample_app[_debug] <model_type> <width> <height> <path_to_weights_file> <path_to_left_image> <path_to_right_image> <disparity_output> [data_type]\n"
-               "where  : model_type is the type of the DNN, supported are: nvsmall and resnet18\n"
+               "where  : model_type is the type of the DNN, supported are: nvsmall, resnet18, resnet18_2D\n"
                "         width and height are dimensions of the network (e.g. 1025 321)\n"
                "         weights file is the output of TensorRT model builder script\n"
                "         left and right are images that will be scaled to <width> x <height>\n"
@@ -139,9 +144,10 @@ int main(int argc, char** argv)
     //getchar();
 
     auto model_type = std::string(argv[1]);
-    if (model_type != "nvsmall" && model_type != "resnet18")
+    if (model_type != "nvsmall" && model_type != "resnet18" &&
+        model_type != "resnet18_2D")
     {
-        printf("Invalid model type %s, supported: nvsmall, resnet18.\n", model_type.c_str());
+        printf("Invalid model type %s, supported: nvsmall, resnet18, resnet18_2D.\n", model_type.c_str());
         exit(1);
     }
 
@@ -206,6 +212,16 @@ int main(int argc, char** argv)
             exit(1);
         }
     }
+    else if (model_type == "resnet18_2D")
+    {
+        if (w == 513)
+            network = createResNet18_2D_513x257Network(*builder, *plugin_factory, DimsCHW { c, h, w }, weights, DataType::kFLOAT, gLogger);
+        else
+        {
+            printf("ResNet18_2D model supports only 513x257 input image.\n");
+            exit(1);
+        }
+    }
     else
         assert(false);
 
@@ -266,7 +282,11 @@ int main(int argc, char** argv)
     res_file.write((char*)output.data(), output.size() * sizeof(float));
     // 2. As PNG image.
     auto img_f = cv::Mat(h, w, CV_32F, output.data());
+    // Same as in KITTI, reduce quantization effects by storing as 16-bit PNG.
     img_f *= 256;
+    // resnet18_2D model normalizes disparity using sigmoid, so bring it back to pixels.
+    if (model_type == "resnet18_2D")
+        img_f *= w;
     cv::Mat img_u16;
     img_f.convertTo(img_u16, CV_16U);
     cv::imwrite(std::string(argv[7]) + ".png", img_u16);

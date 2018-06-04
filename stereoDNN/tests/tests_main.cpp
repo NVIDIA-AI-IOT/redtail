@@ -845,7 +845,7 @@ TEST(CostVolumePluginTests, Basic)
     auto actual  = runPlugin(1, {{"left", left_dims, left}, {"right", right_dims, right}}, cost_vol_dims,
                              [&]
                              {
-                                 return factory->createCostVolumePlugin(cost_vol_dims.d[1], "CostVolume");
+                                 return factory->createCostVolumePlugin(CostVolumeType::kDefault, cost_vol_dims.d[1], "CostVolume");
                              },
                              [] (INetworkDefinition*, ILayer* plugin, IPluginContainer&) { return plugin; },
                              *factory);
@@ -871,7 +871,7 @@ TEST(CostVolumePluginTests, Large)
     auto actual  = runPlugin(1, {{"left", left_dims, left}, {"right", right_dims, right}}, cost_vol_dims,
                              [&]
                              {
-                                 return factory->createCostVolumePlugin(cost_vol_dims.d[1], "CostVolume");
+                                 return factory->createCostVolumePlugin(CostVolumeType::kDefault, cost_vol_dims.d[1], "CostVolume");
                              },
                              [] (INetworkDefinition*, ILayer* plugin, IPluginContainer&) { return plugin; },
                              *factory);
@@ -897,7 +897,7 @@ TEST(CostVolumePluginPerfTests, NVSmall)
     auto actual  = runPlugin(1, {{"left", in_dims, left}, {"right", in_dims, right}}, cv_dims,
                              [&]
                              {
-                                 return factory->createCostVolumePlugin(cv_dims.d[1], "CostVolume");
+                                 return factory->createCostVolumePlugin(CostVolumeType::kDefault, cv_dims.d[1], "CostVolume");
                              },
                              [] (INetworkDefinition*, ILayer* plugin, IPluginContainer&) { return plugin; },
                              *factory);
@@ -905,11 +905,38 @@ TEST(CostVolumePluginPerfTests, NVSmall)
     ASSERT_EQ(cost_vol.size(), actual.size());
 }
 
+// Cost volume - correlation version.
+TEST(CorrCostVolumePluginTests, Basic)
+{
+    Dims left_dims;
+    Dims right_dims;
+    Dims cost_vol_dims;
+    FloatVec left     = readBinaryFile(g_data_dir + "corr_cost_vol_01_l.bin",  left_dims);
+    FloatVec right    = readBinaryFile(g_data_dir + "corr_cost_vol_01_r.bin",  right_dims);
+    FloatVec cost_vol = readBinaryFile(g_data_dir + "corr_cost_vol_01_cv.bin", cost_vol_dims);
+    ASSERT_EQ(left_dims.nbDims,     4);
+    ASSERT_EQ(right_dims.nbDims,    4);
+    ASSERT_EQ(cost_vol_dims.nbDims, 5);
+
+    auto factory = IPluginContainer::create(*g_logger);
+    auto actual  = runPlugin(1, {{"left", left_dims, left}, {"right", right_dims, right}}, cost_vol_dims,
+                             [&]
+                             {
+                                 return factory->createCostVolumePlugin(CostVolumeType::kCorrelation, cost_vol_dims.d[1], "CostVolume");
+                             },
+                             [] (INetworkDefinition*, ILayer* plugin, IPluginContainer&) { return plugin; },
+                             *factory);
+
+    ASSERT_EQ(cost_vol.size(), actual.size());
+    for (size_t i = 0; i < actual.size(); i++)
+         EXPECT_NEAR(cost_vol[i], actual[i], 0.000001) << "Vectors 'actual' and 'cost_vol' differ at index " << i;
+}
+
 // -----------------------------------------------------------------
 // SoftargmaxPlugin plugin tests.
 // -----------------------------------------------------------------
 
-TEST(SoftargmaxPluginTests, Basic)
+TEST(SoftargmaxPluginTests, ArgMinBasic)
 {
     Dims x_dims;
     Dims y_dims;
@@ -922,7 +949,7 @@ TEST(SoftargmaxPluginTests, Basic)
     auto actual  = runPlugin(1, {{"x", x_dims, x}}, y_dims,
                              [&]
                              {
-                                 return factory->createSoftargmaxPlugin("Softargmax");
+                                 return factory->createSoftargmaxPlugin(SoftargmaxType::kMin, "Softargmax");
                              },
                              [] (INetworkDefinition*, ILayer* plugin, IPluginContainer&) { return plugin; },
                              *factory);
@@ -932,7 +959,7 @@ TEST(SoftargmaxPluginTests, Basic)
          EXPECT_FLOAT_EQ(y[i], actual[i]) << "Vectors 'actual' and 'y' differ at index " << i;
 }
 
-TEST(SoftargmaxPluginTests, BatchSize2)
+TEST(SoftargmaxPluginTests, ArgMinBatchSize2)
 {
     Dims x_dims;
     Dims y_dims;
@@ -945,7 +972,7 @@ TEST(SoftargmaxPluginTests, BatchSize2)
     auto actual  = runPlugin(2, {{"x", x_dims, x}}, y_dims,
                              [&]
                              {
-                                 return factory->createSoftargmaxPlugin("Softargmax");
+                                 return factory->createSoftargmaxPlugin(SoftargmaxType::kMin, "Softargmax");
                              },
                              [] (INetworkDefinition*, ILayer* plugin, IPluginContainer&) { return plugin; },
                              *factory);
@@ -953,6 +980,29 @@ TEST(SoftargmaxPluginTests, BatchSize2)
     ASSERT_EQ(y.size(), actual.size());
     for (size_t i = 0; i < actual.size(); i++)
          EXPECT_NEAR(y[i], actual[i], 0.00001) << "Vectors 'actual' and 'y' differ at index " << i;
+}
+
+TEST(SoftargmaxPluginTests, ArgMaxBasic)
+{
+    Dims x_dims;
+    Dims y_dims;
+    FloatVec x = readBinaryFile(g_data_dir + "softargmax_03_x.bin", x_dims);
+    FloatVec y = readBinaryFile(g_data_dir + "softargmax_03_y.bin", y_dims);
+    ASSERT_EQ(x_dims.nbDims, 5);
+    ASSERT_EQ(y_dims.nbDims, 4);
+
+    auto factory = IPluginContainer::create(*g_logger);
+    auto actual  = runPlugin(1, {{"x", x_dims, x}}, y_dims,
+                             [&]
+                             {
+                                 return factory->createSoftargmaxPlugin(SoftargmaxType::kMax, "Softargmax");
+                             },
+                             [] (INetworkDefinition*, ILayer* plugin, IPluginContainer&) { return plugin; },
+                             *factory);
+
+    ASSERT_EQ(y.size(), actual.size());
+    for (size_t i = 0; i < actual.size(); i++)
+         EXPECT_FLOAT_EQ(y[i], actual[i]) << "Vectors 'actual' and 'y' differ at index " << i;
 }
 
 // -----------------------------------------------------------------

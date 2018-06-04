@@ -103,11 +103,12 @@ ILayer* addElu(IPluginContainer& plugin_factory, INetworkDefinition& network, IT
 }
 
 ILayer* addCostVolume(IPluginContainer& plugin_factory, INetworkDefinition& network,
-                      ITensor& left_input, ITensor& right_input, int max_disparity,
+                      ITensor& left_input, ITensor& right_input, 
+                      CostVolumeType cv_type, int max_disparity,
                       const std::string& name)
 {
     // Create plugin.
-    auto plugin = plugin_factory.createCostVolumePlugin(max_disparity, name);
+    auto plugin = plugin_factory.createCostVolumePlugin(cv_type, max_disparity, name);
     assert(plugin != nullptr);
     // Add to the network.
     ITensor* inputs[] = {&left_input, &right_input};
@@ -197,10 +198,10 @@ ILayer* addPad(IPluginContainer& plugin_factory, INetworkDefinition& network, IT
 }
 
 ILayer* addSoftargmax(IPluginContainer& plugin_factory, INetworkDefinition& network, ITensor& input,
-                      const std::string& name)
+                      SoftargmaxType sm_type, const std::string& name)
 {
     // Create plugin.
-    auto plugin = plugin_factory.createSoftargmaxPlugin(name);
+    auto plugin = plugin_factory.createSoftargmaxPlugin(sm_type, name);
     assert(plugin != nullptr);
     // Add to the network.
     ITensor* inputs[] = {&input};

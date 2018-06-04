@@ -16,11 +16,12 @@ using namespace nvinfer1;
 class SoftargmaxPlugin: public IPlugin
 {
 public:
-    SoftargmaxPlugin(ILogger& log, std::string name):
-        log_(log), name_(name)
+    SoftargmaxPlugin(SoftargmaxType sm_type, ILogger& log, std::string name):
+        sm_type_(sm_type), log_(log), name_(name)
     {
         // REVIEW alexeyk: FP32 only for now.
         data_type_ = CUDNN_DATA_FLOAT;
+        assert(sm_type_ == SoftargmaxType::kMax || sm_type_ == SoftargmaxType::kMin);
     }
 
     SoftargmaxPlugin(SoftargmaxPlugin&&) = delete;
@@ -33,12 +34,16 @@ public:
     Dims getOutputDimensions(int index, const Dims* inputs, int nbInputDims) override
     {
         assert(nbInputDims == 1);
-        // Input must be 5D tensor in NDCHW format (batch index implicit) and
-        // C dim must be equal to 1.
-        assert(inputs[0].nbDims == 4);
-        assert(inputs[0].d[1]   == 1);
+        assert(inputs[0].nbDims == 3 || inputs[0].nbDims == 4);
+        // If input is 5D tensor in NDCHW format (batch index implicit) then C dim must be equal to 1.
+        if (inputs[0].nbDims == 3)
+            in_dims_ = inputs[0];
+        else
+        {
+            assert(inputs[0].d[1] == 1);
+            in_dims_ = {3, {inputs[0].d[0], inputs[0].d[2], inputs[0].d[3]}};
+        }
 
-        in_dims_  = {3, {inputs[0].d[0], inputs[0].d[2], inputs[0].d[3]}};
         out_dims_ = DimsCHW(1, in_dims_.d[1], in_dims_.d[2]);
 
         return out_dims_;
@@ -48,7 +53,11 @@ public:
     {
         assert(nbInputs  == 1);
         assert(nbOutputs == 1);
-        assert(DimsUtils::areEqual(inputDims[0],  Dims{4, {in_dims_.d[0], 1, in_dims_.d[1], in_dims_.d[2]}}));
+        assert(inputDims[0].nbDims == 3 || inputDims[0].nbDims == 4);
+        if (inputDims[0].nbDims == 3)
+            assert(DimsUtils::areEqual(inputDims[0],  in_dims_));
+        else
+            assert(DimsUtils::areEqual(inputDims[0],  Dims{4, {in_dims_.d[0], 1, in_dims_.d[1], in_dims_.d[2]}}));
         assert(DimsUtils::areEqual(outputDims[0], out_dims_));
 
         last_batch_size_ = maxBatchSize;
@@ -129,9 +138,12 @@ public:
         size_t in_size_bytes = in_size * sizeof(float);
         CHECK(cu_status = cudaMemcpyAsync(pdst, inputs[0], in_size_bytes, cudaMemcpyDeviceToDevice, stream));
 
-        // Scale.
-        const float kMinusOne = -1.0f;
-        CHECK(status = cudnnScaleTensor(cudnn_, in_desc_, pdst, &kMinusOne));
+        // Scale by -1 in case of softargmin.
+        if (sm_type_ == SoftargmaxType::kMin)
+        {
+            const float kMinusOne = -1.0f;
+            CHECK(status = cudnnScaleTensor(cudnn_, in_desc_, pdst, &kMinusOne));
+        }
 
         // Do softmax over D dim.
         CHECK(status = cudnnSoftmaxForward(cudnn_, CUDNN_SOFTMAX_ACCURATE, CUDNN_SOFTMAX_MODE_CHANNEL, &Consts::kOne, in_desc_, pdst,
@@ -207,6 +219,8 @@ private:
     }
 
 private:
+    SoftargmaxType sm_type_;
+
     cudnnDataType_t               data_type_;
     cudnnHandle_t                 cudnn_    = nullptr;
     cudnnTensorDescriptor_t       in_desc_  = nullptr;
@@ -226,10 +240,10 @@ private:
 };
 
 // Factory method.
-IPlugin* PluginContainer::createSoftargmaxPlugin(std::string name)
+IPlugin* PluginContainer::createSoftargmaxPlugin(SoftargmaxType sm_type, std::string name)
 {
     std::lock_guard<std::mutex> lock(lock_);
-    plugins_.push_back(new SoftargmaxPlugin(log_, name));
+    plugins_.push_back(new SoftargmaxPlugin(sm_type, log_, name));
     return plugins_.back();
 }
 

@@ -223,6 +223,65 @@ assert({1}_pad != nullptr);
         self._write_weights(name + '_b', bias_weights)
         return name
 
+    def write_2d_convolution_transpose(self, input, name, op_path):
+        # Convolution code.
+        code = """\
+// {1} transposed convolution op.
+auto {1} = network->addDeconvolution(*{0}->getOutput(0), {2}, DimsHW {{{3}, {4}}},
+                                     weights.at("{1}_k"), weights.at("{1}_b"));
+assert({1} != nullptr);
+{1}->setStride( DimsHW {{{5}, {6}}});
+{1}->setPadding(DimsHW {{{7}, {8}}});
+
+"""
+        g = tf.get_default_graph()
+        assert g is not None, "No default graph set"
+        # Get and check transposed convolution operation.
+        conv_op = g.get_operation_by_name(os.path.join(op_path, 'conv2d_transpose'))
+        # Assuming input/output of 2D convolution are in NHWC format.
+        assert conv_op.type == 'Conv2DBackpropInput', 'Expected Conv2DBackpropInput operation but got {}.'.format(conv_op.type)
+        assert conv_op.get_attr('data_format').decode() == 'NHWC', 'Only NHWC format is currently supported for 2D transposed convolutions.'
+        assert len(conv_op.inputs)  == 3, 'Transposed convolution expected to have 3 inputs.'
+        assert len(conv_op.outputs) == 1, 'Transposed convolution expected to have only one output.'
+        # Get and check bias operation
+        bias_op = g.get_operation_by_name(os.path.join(op_path, 'BiasAdd'))
+        assert bias_op.type == 'BiasAdd', 'Expected BiasAdd operation but got {}.'.format(bias_op.type)
+        assert bias_op.get_attr('data_format').decode() == 'NHWC', 'Only NHWC format is currently supported for 2D transposed convolution biases.'
+        assert len(bias_op.inputs)  == 2, 'BiasAdd expected to have 2 inputs.'
+        assert len(bias_op.outputs) == 1, 'BiasAdd expected to have only one output.'
+
+        # Get weights, stride and padding.
+        kernel_weights = conv_op.inputs[1].eval()
+        kernel_shape   = kernel_weights.shape
+        assert len(kernel_shape) == 4, '2D transposed convolution kernel weights tensor expected to have rank 4.'
+        # Weights in TF are in RSCK format.
+        kh, kw, kc, kk = kernel_shape
+        strides = conv_op.get_attr('strides')
+        assert len(strides) == 4, '2D transposed convolution strides tensor expected to have length 4.'
+        # Compute padding. 
+        # Note that padding is with respect to convolution input, that is transposed convolution output.
+        conv_in_shape  = np.array(conv_op.outputs[0].shape.as_list())
+        pad_h_start, pad_h_end = self._compute_tf_padding(conv_in_shape[1], kh, strides[1])
+        pad_w_start, pad_w_end = self._compute_tf_padding(conv_in_shape[2], kw, strides[2])
+        # cuDNN limitations...
+        assert pad_h_start == pad_h_end, 'Only symmetrical padding is currently supported for H dimension.'
+        assert pad_w_start == pad_w_end, 'Only symmetrical padding is currently supported for W dimension.'
+        # Write code.
+        code = code.format(input, name, kc, kh, kw, strides[1], strides[2], pad_h_start, pad_w_start)
+        self.code_writer.write(self._indent_lines(code))
+        # Convert and write weights.
+        kernel_weights = rsck_to_kcrs(kernel_weights)
+        # Write kernel weights.
+        self._write_weights(name + '_k', kernel_weights)
+        # Write bias weights.
+        bias_weights = bias_op.inputs[1].eval()
+        bias_shape   = bias_weights.shape
+        assert len(bias_shape) == 1, '2D transposed convolution bias weights tensor expected to have rank 1.'
+        assert bias_shape[0] == kc, '2D transposed convolution bias size does not match convolution input channels.'
+        self._write_weights(name + '_b', bias_weights)
+        
+        return name
+
     def write_3d_convolution(self, input, name, op_path):
         # Write code.
         code = """\
@@ -396,22 +455,37 @@ assert({1} != nullptr);
         self.code_writer.write(self._indent_lines(code))
         return name
 
-    def write_cost_vol(self, left_input, right_input, name, op_path):
+    def write_sigmoid(self, input, name):
+        # Write code.
+        code = """\
+// {1} sigmoid activation op.
+auto {1} = network->addActivation(*{0}->getOutput(0), ActivationType::kSIGMOID);
+assert({1} != nullptr);
+
+"""
+        code = code.format(input, name)
+        self.code_writer.write(self._indent_lines(code))
+        return name
+
+    def write_cost_vol(self, left_input, right_input, name, op_path, is_corr=False):
         # Write code.
         code = """\
 // {2} cost volume op.
-auto {2} = addCostVolume(plugin_factory, *network, *{0}->getOutput(0), *{1}->getOutput(0), {3}, "{2}");
+auto {2} = addCostVolume(plugin_factory, *network, *{0}->getOutput(0), *{1}->getOutput(0),
+                         {3}, {4}, "{2}");
 assert({2} != nullptr);
 
 """
         g = tf.get_default_graph()
         assert g is not None, "No default graph set"
-        last_op   = g.get_operation_by_name(os.path.join(op_path, 'concat'))
+        last_op   = g.get_operation_by_name(os.path.join(op_path, 'concat' if not is_corr else 'Sum'))
         out_shape = last_op.outputs[0].shape
         assert len(out_shape) == 5, 'Cost volume output tensor expected to have rank 5 but got {}.'.format(len(out_shape))
         # Max disparity is the second outermost dimension in the output.
         max_disp = out_shape[1]
-        code = code.format(left_input, right_input, name, max_disp)
+        code = code.format(left_input, right_input, name, 
+                           'CostVolumeType::kDefault' if not is_corr else 'CostVolumeType::kCorrelation',
+                           max_disp)
         self.code_writer.write(self._indent_lines(code))
         return name
 
@@ -450,13 +524,27 @@ assert({2} != nullptr);
         self.code_writer.write(self._indent_lines(code))
         return name
 
-    def write_softargmax(self, input, name):
+    def write_softargmax(self, input, name, is_argmin):
         code = """\
 // Softargmax.
-auto {1} = addSoftargmax(plugin_factory, *network, *{0}->getOutput(0), "{1}_softargmax");
+auto {1} = addSoftargmax(plugin_factory, *network, *{0}->getOutput(0), {2}, "{1}_softargmax");
 assert({1} != nullptr);
 
 """
-        code = code.format(input, name)
+        code = code.format(input, name,
+                           'SoftargmaxType::kMin' if is_argmin else 'SoftargmaxType::kMax' )
+        self.code_writer.write(self._indent_lines(code))
+        return name
+
+    def write_concat_tensors(self, t1, t2, name):
+        # Write code.
+        code = """\
+// {2} tensor concat op.
+ITensor* {2}_inputs[] = {{{0}->getOutput(0), {1}->getOutput(0)}};
+auto {2} = network->addConcatenation({2}_inputs, 2);
+assert({2} != nullptr);
+
+"""
+        code = code.format(t1, t2, name)
         self.code_writer.write(self._indent_lines(code))
         return name

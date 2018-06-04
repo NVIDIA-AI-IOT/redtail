@@ -145,7 +145,8 @@ INetworkDefinition* createNVSmall1025x321Network(IBuilder& builder, IPluginConta
     right_conv5->setPadding(DimsHW {1, 1});
 
     // cost_vol cost volume op.
-    auto cost_vol = addCostVolume(plugin_factory, *network, *left_conv5->getOutput(0), *right_conv5->getOutput(0), 48, "cost_vol");
+    auto cost_vol = addCostVolume(plugin_factory, *network, *left_conv5->getOutput(0), *right_conv5->getOutput(0),
+                             CostVolumeType::kDefault, 48, "cost_vol");
     assert(cost_vol != nullptr);
 
     // conv3D_1 3D convolution op.
@@ -356,7 +357,7 @@ INetworkDefinition* createNVSmall1025x321Network(IBuilder& builder, IPluginConta
     assert(deconv3D_3_slice_layer != nullptr);
 
     // Softargmax.
-    auto disp = addSoftargmax(plugin_factory, *network, *deconv3D_3_slice_layer->getOutput(0), "disp_softargmax");
+    auto disp = addSoftargmax(plugin_factory, *network, *deconv3D_3_slice_layer->getOutput(0), SoftargmaxType::kMin, "disp_softargmax");
     assert(disp != nullptr);
 
     auto disp_out = disp->getOutput(0);

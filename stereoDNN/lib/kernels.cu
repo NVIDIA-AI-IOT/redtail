@@ -159,6 +159,65 @@ cudaError_t CudaKernels::computeCostVolume(const float* left, const float* right
 }
 
 // -----------------------------------------------------------------
+// Correlation cost volume kernels.
+// -----------------------------------------------------------------
+
+template<typename T>
+__global__ void corrCostVolumeKernel(const T* left, const T* right, int32_t c, int32_t h, int32_t w, int32_t disp, T* dst)
+{
+    assert(left  != nullptr);
+    assert(right != nullptr);
+    assert(dst   != nullptr);
+
+    const uint32_t ix = blockIdx.x * blockDim.x + threadIdx.x;
+    const uint32_t iy = blockIdx.y * blockDim.y + threadIdx.y;
+    if (ix >= w || iy >= h)
+        return;
+
+    uint32_t pad = blockIdx.z;
+    assert(pad < disp);
+    size_t stride = h * w;
+
+    T val = 0;
+    if (ix >= pad)
+    {
+        const T* pl = left  + iy * w + ix;
+        const T* pr = right + iy * w + ix - pad;
+        for (int32_t i = 0; i < c; i++)
+        {
+            val += *pl * (*pr);
+            pl  += stride;
+            pr  += stride;
+        }
+    }
+
+    // Disparity feature maps are arranged from to min to max.
+    size_t idst = pad * h * w + iy * w + ix;
+    dst[idst] = val;
+}
+
+
+template<>
+cudaError_t CudaKernels::computeCorrCostVolume(const float* left, const float* right, Dims in_dims, 
+                                               float* cost_vol, Dims out_dims, cudaStream_t stream)
+{
+    assert(in_dims.nbDims  == 3);
+    assert(out_dims.nbDims == 3);
+
+    dim3 b_dim{16, 16, 1};
+    dim3 g_dim;
+    g_dim.x = getBlockCount(in_dims.d[2],  b_dim.x);
+    g_dim.y = getBlockCount(in_dims.d[1],  b_dim.y);
+    // Each block handles a particular disparity.
+    g_dim.z = out_dims.d[0];
+
+    corrCostVolumeKernel<<<g_dim, b_dim, 0, stream>>>(left, right, in_dims.d[0], in_dims.d[1], in_dims.d[2], out_dims.d[0],
+                                                      cost_vol);
+    CHECKK(stream);
+    return cudaSuccess;
+}
+
+// -----------------------------------------------------------------
 // Some convolution-related kernels.
 // -----------------------------------------------------------------
 template<typename T>

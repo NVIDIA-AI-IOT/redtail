@@ -15,10 +15,12 @@ using namespace nvinfer1;
 class CostVolumePlugin: public IPlugin
 {
 public:
-    CostVolumePlugin(int max_disparity, ILogger& log, std::string name):
-        max_disparity_(max_disparity), log_(log), name_(name)
+    CostVolumePlugin(CostVolumeType cv_type, int max_disparity,
+                     ILogger& log, std::string name):
+        cv_type_(cv_type), max_disparity_(max_disparity), log_(log), name_(name)
     {
         assert(max_disparity_ > 0);
+        assert(cv_type_ == CostVolumeType::kDefault || cv_type_ == CostVolumeType::kCorrelation);
     }
 
     CostVolumePlugin(CostVolumePlugin&&) = delete;
@@ -34,16 +36,18 @@ public:
         // and are of the same shape.
         assert(nbInputDims == 2);
         for (int i = 0; i < nbInputDims; i++)
-        {
             assert(inputs[i].nbDims == 3);
-            assert(inputs[i].type[0] == DimensionType::kCHANNEL);
-            assert(inputs[i].type[1] == DimensionType::kSPATIAL);
-            assert(inputs[i].type[2] == DimensionType::kSPATIAL);
-        }
         assert(DimsUtils::areEqual(inputs[0], inputs[1]));
 
         in_dims_  = inputs[0];
-        out_dims_ = DimsNCHW(max_disparity_, 2 * in_dims_.d[0], in_dims_.d[1], in_dims_.d[2]);
+        // 4D output in case of default CV.
+        // 3D - correlation.
+        if (cv_type_ == CostVolumeType::kDefault)
+            out_dims_ = DimsNCHW(max_disparity_, 2 * in_dims_.d[0], in_dims_.d[1], in_dims_.d[2]);
+        else if (cv_type_ == CostVolumeType::kCorrelation)
+            out_dims_ = DimsCHW(max_disparity_, in_dims_.d[1], in_dims_.d[2]);
+        else
+            assert(false);
         return out_dims_;
     }
 
@@ -83,8 +87,13 @@ public:
         auto pright    = static_cast<const float*>(inputs[1]);
         auto pcost_vol = static_cast<float*>(outputs[0]);
 
-        cudaError_t status;
-        CHECK(status = CudaKernels::computeCostVolume(pleft, pright, in_dims_, pcost_vol, out_dims_, stream));
+        cudaError_t status = (cudaError_t)-1;
+        if (cv_type_ == CostVolumeType::kDefault)
+            CHECK(status = CudaKernels::computeCostVolume(pleft, pright, in_dims_, pcost_vol, out_dims_, stream));
+        else if (cv_type_ == CostVolumeType::kCorrelation)
+            CHECK(status = CudaKernels::computeCorrCostVolume(pleft, pright, in_dims_, pcost_vol, out_dims_, stream));
+        else
+            assert(false);
 
         return status;
     }
@@ -99,19 +108,22 @@ public:
     }
 
 private:
-    int      max_disparity_;
-    Dims     in_dims_;
-    DimsNCHW out_dims_;
+    CostVolumeType cv_type_;
+
+    int  max_disparity_;
+    Dims in_dims_;
+    Dims out_dims_;
     
     ILogger&    log_;
     std::string name_;
 };
 
 // Factory method.
-IPlugin* PluginContainer::createCostVolumePlugin(int max_disparity, std::string name)
+IPlugin* PluginContainer::createCostVolumePlugin(CostVolumeType cv_type, int max_disparity,
+                                                 std::string name)
 {
     std::lock_guard<std::mutex> lock(lock_);
-    plugins_.push_back(new CostVolumePlugin(max_disparity, log_, name));
+    plugins_.push_back(new CostVolumePlugin(cv_type, max_disparity, log_, name));
     return plugins_.back();
 }
 
