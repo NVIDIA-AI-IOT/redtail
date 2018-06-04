@@ -10,6 +10,11 @@ from __future__ import print_function
 
 import os
 
+# Create inference model:
+# NVSmall:
+# python ./model_builder.py --model_type nvsmall --net_name NVTiny513x161 --checkpoint_path=../models/NVTiny/TensorFlow/model-inference-513x161-0 --weights_file=../models/NVTiny/TensorRT/trt_weights.bin --cpp_file=../sample_app/nvtiny_513x161_net.cpp
+# NVTiny:
+# python ./model_builder.py --model_type nvsmall --net_name NVTiny513x161 --checkpoint_path=../models/NVTiny/TensorFlow/model-inference-513x161-0 --weights_file=../models/NVTiny/TensorRT/trt_weights.bin --cpp_file=../sample_app/nvtiny_513x161_net.cpp
 def create(builder):
     def write_2d_encoder():
         sides = ['left', 'right']
@@ -63,6 +68,6 @@ def create(builder):
     cur = write_3d_encoder(cur)
     cur = write_3d_decoder(cur)
     # Softargmax
-    cur = builder.write_softargmax(cur, 'disp')
+    cur = builder.write_softargmax(cur, 'disp', is_argmin=True)
     builder.write_output(cur)
     builder.write_footer()

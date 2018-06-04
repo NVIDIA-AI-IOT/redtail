@@ -19,12 +19,14 @@ with warnings.catch_warnings():
 import tensorrt_model_builder
 import model_nvsmall
 import model_resnet18
+import model_resnet18_2D
 
 def check_model_type(src):
-    if src == 'nvsmall' or src == 'resnet18':
+    supported_types = ['nvsmall', 'resnet18', 'resnet18_2D']
+    if src in supported_types:
         return src
     else:
-        raise argparse.ArgumentTypeError('Invalid model type {}. Supported: nvsmall, resnet18'.format(src))
+        raise argparse.ArgumentTypeError('Invalid model type {}. Supported: {}'.format(src, ', '.join(supported_types)))
 
 def check_data_type(src):
     if src == 'fp32' or src == 'fp16':
@@ -65,6 +67,8 @@ def main():
                 model_nvsmall.create(builder)
             elif args.model_type == 'resnet18':
                 model_resnet18.create(builder)
+            elif args.model_type == 'resnet18_2D':
+                model_resnet18_2D.create(builder)
             else:
                 # Should never happen, yeah.
                 assert False, 'Not supported.'

@@ -10,37 +10,40 @@ from __future__ import print_function
 
 import os
 
-def create(builder):
-    def write_residual_block(input, name, path):
-        cur = builder.write_2d_convolution(input, name + '_conv1', os.path.join(path, 'res_conv1'))
-        cur = builder.write_elu(cur, cur + '_act')
-        cur = builder.write_2d_convolution(cur, name + '_conv2', os.path.join(path, 'res_conv2'))
-        cur = builder.write_add_tensors(cur, input, cur + '_add')
-        cur = builder.write_elu(cur, cur + '_act')
-        return cur
+# ResNet-18
+# python ./model_builder.py --model_type resnet18 --net_name ResNet18_1025x321 --checkpoint_path=../models/ResNet-18/TensorFlow/model-inference-1025x321-0 --weights_file=../models/ResNet-18/TensorRT/trt_weights.bin --cpp_file=../sample_app/resnet18_1025x321_net.cpp
 
-    def write_2d_encoder():
-        sides = ['left', 'right']
-        builder.write_input(sides[0])
-        builder.write_input(sides[1])
-        layer_inp = [sides[0] + '_scale', sides[1] + '_scale']
-        builder.write_scale(sides[0], layer_inp[0])
-        builder.write_scale(sides[1], layer_inp[1])
-        # conv1
+def write_residual_block(input, name, path, builder):
+    cur = builder.write_2d_convolution(input, name + '_conv1', os.path.join(path, 'res_conv1'))
+    cur = builder.write_elu(cur, cur + '_act')
+    cur = builder.write_2d_convolution(cur, name + '_conv2', os.path.join(path, 'res_conv2'))
+    cur = builder.write_add_tensors(cur, input, cur + '_add')
+    cur = builder.write_elu(cur, cur + '_act')
+    return cur
+
+def write_2d_encoder(builder):
+    sides = ['left', 'right']
+    builder.write_input(sides[0])
+    builder.write_input(sides[1])
+    layer_inp = [sides[0] + '_scale', sides[1] + '_scale']
+    builder.write_scale(sides[0], layer_inp[0])
+    builder.write_scale(sides[1], layer_inp[1])
+    # conv1
+    for i in range(len(sides)):
+        cur = builder.write_2d_convolution(layer_inp[i], '{}_{}'.format(sides[i], 'conv1'), os.path.join('model/encoder2D', 'conv1'))
+        cur = builder.write_elu(cur, cur + '_act')
+        layer_inp[i] = cur
+    # resblock 1 - 8
+    for l in ['resblock1', 'resblock2', 'resblock3', 'resblock4', 'resblock5', 'resblock6', 'resblock7', 'resblock8']:
         for i in range(len(sides)):
-            cur = builder.write_2d_convolution(layer_inp[i], '{}_{}'.format(sides[i], 'conv1'), os.path.join('model/encoder2D', 'conv1'))
-            cur = builder.write_elu(cur, cur + '_act')
-            layer_inp[i] = cur
-        # resblock 1 - 8
-        for l in ['resblock1', 'resblock2', 'resblock3', 'resblock4', 'resblock5', 'resblock6', 'resblock7', 'resblock8']:
-            for i in range(len(sides)):
-                cur = '{}_{}'.format(sides[i], l)
-                layer_inp[i] =  write_residual_block(layer_inp[i], cur, os.path.join('model/encoder2D', l))
-        # encoder2D_out
-        left  = builder.write_2d_convolution(layer_inp[0], sides[0] + '_encoder2D_out', 'model/encoder2D/encoder2D_out')
-        right = builder.write_2d_convolution(layer_inp[1], sides[1] + '_encoder2D_out', 'model/encoder2D/encoder2D_out')
-        return left, right
+            cur = '{}_{}'.format(sides[i], l)
+            layer_inp[i] =  write_residual_block(layer_inp[i], cur, os.path.join('model/encoder2D', l), builder)
+    # encoder2D_out
+    left  = builder.write_2d_convolution(layer_inp[0], sides[0] + '_encoder2D_out', 'model/encoder2D/encoder2D_out')
+    right = builder.write_2d_convolution(layer_inp[1], sides[1] + '_encoder2D_out', 'model/encoder2D/encoder2D_out')
+    return left, right
 
+def create(builder):
     def write_3d_encoder(input):
         input = 'cost_vol'
         for l in ['conv3D_1a', 'conv3D_1b', 'conv3D_1ds',
@@ -72,11 +75,11 @@ def create(builder):
 
     builder.write_header()
     builder.do_indent()
-    left, right = write_2d_encoder()
+    left, right = write_2d_encoder(builder)
     cur = builder.write_cost_vol(left, right, 'cost_vol', 'model/cost_vol/cost_volume_left')
     cur = write_3d_encoder(cur)
     cur = write_3d_decoder(cur)
     # Softargmax
-    cur = builder.write_softargmax(cur, 'disp')
+    cur = builder.write_softargmax(cur, 'disp', is_argmin=True)
     builder.write_output(cur)
     builder.write_footer()

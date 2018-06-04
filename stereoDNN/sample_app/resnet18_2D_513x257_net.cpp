@@ -18,7 +18,7 @@ using namespace nvinfer1;
 
 using weight_map = std::unordered_map<std::string, Weights>;
 
-INetworkDefinition* createResNet18_1025x321Network(IBuilder& builder, IPluginContainer& plugin_factory,
+INetworkDefinition* createResNet18_2D_513x257Network(IBuilder& builder, IPluginContainer& plugin_factory,
                                      DimsCHW img_dims, const weight_map& weights, DataType data_type,
                                      ILogger& log)
 {
@@ -511,364 +511,145 @@ INetworkDefinition* createResNet18_1025x321Network(IBuilder& builder, IPluginCon
 
     // cost_vol cost volume op.
     auto cost_vol = addCostVolume(plugin_factory, *network, *left_encoder2D_out->getOutput(0), *right_encoder2D_out->getOutput(0),
-                             CostVolumeType::kDefault, 68, "cost_vol");
+                             CostVolumeType::kCorrelation, 48, "cost_vol");
     assert(cost_vol != nullptr);
 
-    // conv3D_1a 3D convolution op.
-    auto conv3D_1a = addConv3D(plugin_factory, *network, *cost_vol->getOutput(0),
-                         Conv3DType::kTensorFlow, {5, {32, 3, 64, 3, 3}},
-                         Dims{3, {1, 1, 1}}, Dims{3, {1, 1, 1}}, Dims{3, {1, 1, 1}},
-                         weights.at("conv3D_1a_k"), weights.at("conv3D_1a_b"),
-                         "conv3D_1a");
-    assert(conv3D_1a != nullptr);
-
-    // Transpose output: KDHW -> DKHW for conv3d and DKHW -> KDHW for conv3d_transpose
-    auto conv3D_1a_tran = addTransform(plugin_factory, *network, *conv3D_1a->getOutput(0), {1, 0, 2, 3}, "conv3D_1a_tran_transform");
-    assert(conv3D_1a_tran != nullptr);
-
-    // conv3D_1a_act ELU activation op.
-    auto conv3D_1a_act = addElu(plugin_factory, *network, *conv3D_1a_tran->getOutput(0), data_type, "conv3D_1a_act");
-    assert(conv3D_1a_act != nullptr);
-
-    // conv3D_1b 3D convolution op.
-    auto conv3D_1b = addConv3D(plugin_factory, *network, *conv3D_1a_act->getOutput(0),
-                         Conv3DType::kTensorFlow, {5, {32, 3, 32, 3, 3}},
-                         Dims{3, {1, 1, 1}}, Dims{3, {1, 1, 1}}, Dims{3, {1, 1, 1}},
-                         weights.at("conv3D_1b_k"), weights.at("conv3D_1b_b"),
-                         "conv3D_1b");
-    assert(conv3D_1b != nullptr);
-
-    // Transpose output: KDHW -> DKHW for conv3d and DKHW -> KDHW for conv3d_transpose
-    auto conv3D_1b_tran = addTransform(plugin_factory, *network, *conv3D_1b->getOutput(0), {1, 0, 2, 3}, "conv3D_1b_tran_transform");
-    assert(conv3D_1b_tran != nullptr);
-
-    // conv3D_1b_act ELU activation op.
-    auto conv3D_1b_act = addElu(plugin_factory, *network, *conv3D_1b_tran->getOutput(0), data_type, "conv3D_1b_act");
-    assert(conv3D_1b_act != nullptr);
-
-    // conv3D_1ds_pad padding op.
-    auto conv3D_1ds_pad = addPad(plugin_factory, *network, *conv3D_1b_act->getOutput(0), {0, 0, 0, 0}, {1, 0, 0, 0}, "conv3D_1ds_pad");
-    assert(conv3D_1ds_pad != nullptr);
-
-    // conv3D_1ds 3D convolution op.
-    auto conv3D_1ds = addConv3D(plugin_factory, *network, *conv3D_1ds_pad->getOutput(0),
-                         Conv3DType::kTensorFlow, {5, {64, 3, 32, 3, 3}},
-                         Dims{3, {2, 2, 2}}, Dims{3, {0, 1, 1}}, Dims{3, {1, 1, 1}},
-                         weights.at("conv3D_1ds_k"), weights.at("conv3D_1ds_b"),
-                         "conv3D_1ds");
-    assert(conv3D_1ds != nullptr);
-
-    // Transpose output: KDHW -> DKHW for conv3d and DKHW -> KDHW for conv3d_transpose
-    auto conv3D_1ds_tran = addTransform(plugin_factory, *network, *conv3D_1ds->getOutput(0), {1, 0, 2, 3}, "conv3D_1ds_tran_transform");
-    assert(conv3D_1ds_tran != nullptr);
-
-    // conv3D_1ds_act ELU activation op.
-    auto conv3D_1ds_act = addElu(plugin_factory, *network, *conv3D_1ds_tran->getOutput(0), data_type, "conv3D_1ds_act");
-    assert(conv3D_1ds_act != nullptr);
-
-    // conv3D_2a 3D convolution op.
-    auto conv3D_2a = addConv3D(plugin_factory, *network, *conv3D_1ds_act->getOutput(0),
-                         Conv3DType::kTensorFlow, {5, {64, 3, 64, 3, 3}},
-                         Dims{3, {1, 1, 1}}, Dims{3, {1, 1, 1}}, Dims{3, {1, 1, 1}},
-                         weights.at("conv3D_2a_k"), weights.at("conv3D_2a_b"),
-                         "conv3D_2a");
-    assert(conv3D_2a != nullptr);
-
-    // Transpose output: KDHW -> DKHW for conv3d and DKHW -> KDHW for conv3d_transpose
-    auto conv3D_2a_tran = addTransform(plugin_factory, *network, *conv3D_2a->getOutput(0), {1, 0, 2, 3}, "conv3D_2a_tran_transform");
-    assert(conv3D_2a_tran != nullptr);
-
-    // conv3D_2a_act ELU activation op.
-    auto conv3D_2a_act = addElu(plugin_factory, *network, *conv3D_2a_tran->getOutput(0), data_type, "conv3D_2a_act");
-    assert(conv3D_2a_act != nullptr);
-
-    // conv3D_2b 3D convolution op.
-    auto conv3D_2b = addConv3D(plugin_factory, *network, *conv3D_2a_act->getOutput(0),
-                         Conv3DType::kTensorFlow, {5, {64, 3, 64, 3, 3}},
-                         Dims{3, {1, 1, 1}}, Dims{3, {1, 1, 1}}, Dims{3, {1, 1, 1}},
-                         weights.at("conv3D_2b_k"), weights.at("conv3D_2b_b"),
-                         "conv3D_2b");
-    assert(conv3D_2b != nullptr);
-
-    // Transpose output: KDHW -> DKHW for conv3d and DKHW -> KDHW for conv3d_transpose
-    auto conv3D_2b_tran = addTransform(plugin_factory, *network, *conv3D_2b->getOutput(0), {1, 0, 2, 3}, "conv3D_2b_tran_transform");
-    assert(conv3D_2b_tran != nullptr);
-
-    // conv3D_2b_act ELU activation op.
-    auto conv3D_2b_act = addElu(plugin_factory, *network, *conv3D_2b_tran->getOutput(0), data_type, "conv3D_2b_act");
-    assert(conv3D_2b_act != nullptr);
-
-    // conv3D_2ds_pad padding op.
-    auto conv3D_2ds_pad = addPad(plugin_factory, *network, *conv3D_2b_act->getOutput(0), {0, 0, 0, 0}, {1, 0, 0, 0}, "conv3D_2ds_pad");
-    assert(conv3D_2ds_pad != nullptr);
-
-    // conv3D_2ds 3D convolution op.
-    auto conv3D_2ds = addConv3D(plugin_factory, *network, *conv3D_2ds_pad->getOutput(0),
-                         Conv3DType::kTensorFlow, {5, {64, 3, 64, 3, 3}},
-                         Dims{3, {2, 2, 2}}, Dims{3, {0, 1, 1}}, Dims{3, {1, 1, 1}},
-                         weights.at("conv3D_2ds_k"), weights.at("conv3D_2ds_b"),
-                         "conv3D_2ds");
-    assert(conv3D_2ds != nullptr);
-
-    // Transpose output: KDHW -> DKHW for conv3d and DKHW -> KDHW for conv3d_transpose
-    auto conv3D_2ds_tran = addTransform(plugin_factory, *network, *conv3D_2ds->getOutput(0), {1, 0, 2, 3}, "conv3D_2ds_tran_transform");
-    assert(conv3D_2ds_tran != nullptr);
-
-    // conv3D_2ds_act ELU activation op.
-    auto conv3D_2ds_act = addElu(plugin_factory, *network, *conv3D_2ds_tran->getOutput(0), data_type, "conv3D_2ds_act");
-    assert(conv3D_2ds_act != nullptr);
-
-    // conv3D_3a 3D convolution op.
-    auto conv3D_3a = addConv3D(plugin_factory, *network, *conv3D_2ds_act->getOutput(0),
-                         Conv3DType::kTensorFlow, {5, {64, 3, 64, 3, 3}},
-                         Dims{3, {1, 1, 1}}, Dims{3, {1, 1, 1}}, Dims{3, {1, 1, 1}},
-                         weights.at("conv3D_3a_k"), weights.at("conv3D_3a_b"),
-                         "conv3D_3a");
-    assert(conv3D_3a != nullptr);
-
-    // Transpose output: KDHW -> DKHW for conv3d and DKHW -> KDHW for conv3d_transpose
-    auto conv3D_3a_tran = addTransform(plugin_factory, *network, *conv3D_3a->getOutput(0), {1, 0, 2, 3}, "conv3D_3a_tran_transform");
-    assert(conv3D_3a_tran != nullptr);
-
-    // conv3D_3a_act ELU activation op.
-    auto conv3D_3a_act = addElu(plugin_factory, *network, *conv3D_3a_tran->getOutput(0), data_type, "conv3D_3a_act");
-    assert(conv3D_3a_act != nullptr);
-
-    // conv3D_3b 3D convolution op.
-    auto conv3D_3b = addConv3D(plugin_factory, *network, *conv3D_3a_act->getOutput(0),
-                         Conv3DType::kTensorFlow, {5, {64, 3, 64, 3, 3}},
-                         Dims{3, {1, 1, 1}}, Dims{3, {1, 1, 1}}, Dims{3, {1, 1, 1}},
-                         weights.at("conv3D_3b_k"), weights.at("conv3D_3b_b"),
-                         "conv3D_3b");
-    assert(conv3D_3b != nullptr);
-
-    // Transpose output: KDHW -> DKHW for conv3d and DKHW -> KDHW for conv3d_transpose
-    auto conv3D_3b_tran = addTransform(plugin_factory, *network, *conv3D_3b->getOutput(0), {1, 0, 2, 3}, "conv3D_3b_tran_transform");
-    assert(conv3D_3b_tran != nullptr);
-
-    // conv3D_3b_act ELU activation op.
-    auto conv3D_3b_act = addElu(plugin_factory, *network, *conv3D_3b_tran->getOutput(0), data_type, "conv3D_3b_act");
-    assert(conv3D_3b_act != nullptr);
-
-    // conv3D_3ds_pad padding op.
-    auto conv3D_3ds_pad = addPad(plugin_factory, *network, *conv3D_3b_act->getOutput(0), {0, 0, 0, 0}, {1, 0, 0, 0}, "conv3D_3ds_pad");
-    assert(conv3D_3ds_pad != nullptr);
-
-    // conv3D_3ds 3D convolution op.
-    auto conv3D_3ds = addConv3D(plugin_factory, *network, *conv3D_3ds_pad->getOutput(0),
-                         Conv3DType::kTensorFlow, {5, {64, 3, 64, 3, 3}},
-                         Dims{3, {2, 2, 2}}, Dims{3, {1, 1, 1}}, Dims{3, {1, 1, 1}},
-                         weights.at("conv3D_3ds_k"), weights.at("conv3D_3ds_b"),
-                         "conv3D_3ds");
-    assert(conv3D_3ds != nullptr);
-
-    // Transpose output: KDHW -> DKHW for conv3d and DKHW -> KDHW for conv3d_transpose
-    auto conv3D_3ds_tran = addTransform(plugin_factory, *network, *conv3D_3ds->getOutput(0), {1, 0, 2, 3}, "conv3D_3ds_tran_transform");
-    assert(conv3D_3ds_tran != nullptr);
-
-    // conv3D_3ds_act ELU activation op.
-    auto conv3D_3ds_act = addElu(plugin_factory, *network, *conv3D_3ds_tran->getOutput(0), data_type, "conv3D_3ds_act");
-    assert(conv3D_3ds_act != nullptr);
-
-    // conv3D_4a 3D convolution op.
-    auto conv3D_4a = addConv3D(plugin_factory, *network, *conv3D_3ds_act->getOutput(0),
-                         Conv3DType::kTensorFlow, {5, {64, 3, 64, 3, 3}},
-                         Dims{3, {1, 1, 1}}, Dims{3, {1, 1, 1}}, Dims{3, {1, 1, 1}},
-                         weights.at("conv3D_4a_k"), weights.at("conv3D_4a_b"),
-                         "conv3D_4a");
-    assert(conv3D_4a != nullptr);
-
-    // Transpose output: KDHW -> DKHW for conv3d and DKHW -> KDHW for conv3d_transpose
-    auto conv3D_4a_tran = addTransform(plugin_factory, *network, *conv3D_4a->getOutput(0), {1, 0, 2, 3}, "conv3D_4a_tran_transform");
-    assert(conv3D_4a_tran != nullptr);
-
-    // conv3D_4a_act ELU activation op.
-    auto conv3D_4a_act = addElu(plugin_factory, *network, *conv3D_4a_tran->getOutput(0), data_type, "conv3D_4a_act");
-    assert(conv3D_4a_act != nullptr);
-
-    // conv3D_4b 3D convolution op.
-    auto conv3D_4b = addConv3D(plugin_factory, *network, *conv3D_4a_act->getOutput(0),
-                         Conv3DType::kTensorFlow, {5, {64, 3, 64, 3, 3}},
-                         Dims{3, {1, 1, 1}}, Dims{3, {1, 1, 1}}, Dims{3, {1, 1, 1}},
-                         weights.at("conv3D_4b_k"), weights.at("conv3D_4b_b"),
-                         "conv3D_4b");
-    assert(conv3D_4b != nullptr);
-
-    // Transpose output: KDHW -> DKHW for conv3d and DKHW -> KDHW for conv3d_transpose
-    auto conv3D_4b_tran = addTransform(plugin_factory, *network, *conv3D_4b->getOutput(0), {1, 0, 2, 3}, "conv3D_4b_tran_transform");
-    assert(conv3D_4b_tran != nullptr);
-
-    // conv3D_4b_act ELU activation op.
-    auto conv3D_4b_act = addElu(plugin_factory, *network, *conv3D_4b_tran->getOutput(0), data_type, "conv3D_4b_act");
-    assert(conv3D_4b_act != nullptr);
-
-    // conv3D_4ds_pad padding op.
-    auto conv3D_4ds_pad = addPad(plugin_factory, *network, *conv3D_4b_act->getOutput(0), {0, 0, 0, 0}, {1, 0, 0, 0}, "conv3D_4ds_pad");
-    assert(conv3D_4ds_pad != nullptr);
-
-    // conv3D_4ds 3D convolution op.
-    auto conv3D_4ds = addConv3D(plugin_factory, *network, *conv3D_4ds_pad->getOutput(0),
-                         Conv3DType::kTensorFlow, {5, {128, 3, 64, 3, 3}},
-                         Dims{3, {2, 2, 2}}, Dims{3, {1, 1, 1}}, Dims{3, {1, 1, 1}},
-                         weights.at("conv3D_4ds_k"), weights.at("conv3D_4ds_b"),
-                         "conv3D_4ds");
-    assert(conv3D_4ds != nullptr);
-
-    // Transpose output: KDHW -> DKHW for conv3d and DKHW -> KDHW for conv3d_transpose
-    auto conv3D_4ds_tran = addTransform(plugin_factory, *network, *conv3D_4ds->getOutput(0), {1, 0, 2, 3}, "conv3D_4ds_tran_transform");
-    assert(conv3D_4ds_tran != nullptr);
-
-    // conv3D_4ds_act ELU activation op.
-    auto conv3D_4ds_act = addElu(plugin_factory, *network, *conv3D_4ds_tran->getOutput(0), data_type, "conv3D_4ds_act");
-    assert(conv3D_4ds_act != nullptr);
-
-    // conv3D_5a 3D convolution op.
-    auto conv3D_5a = addConv3D(plugin_factory, *network, *conv3D_4ds_act->getOutput(0),
-                         Conv3DType::kTensorFlow, {5, {128, 3, 128, 3, 3}},
-                         Dims{3, {1, 1, 1}}, Dims{3, {1, 1, 1}}, Dims{3, {1, 1, 1}},
-                         weights.at("conv3D_5a_k"), weights.at("conv3D_5a_b"),
-                         "conv3D_5a");
-    assert(conv3D_5a != nullptr);
-
-    // Transpose output: KDHW -> DKHW for conv3d and DKHW -> KDHW for conv3d_transpose
-    auto conv3D_5a_tran = addTransform(plugin_factory, *network, *conv3D_5a->getOutput(0), {1, 0, 2, 3}, "conv3D_5a_tran_transform");
-    assert(conv3D_5a_tran != nullptr);
-
-    // conv3D_5a_act ELU activation op.
-    auto conv3D_5a_act = addElu(plugin_factory, *network, *conv3D_5a_tran->getOutput(0), data_type, "conv3D_5a_act");
-    assert(conv3D_5a_act != nullptr);
-
-    // conv3D_5b 3D convolution op.
-    auto conv3D_5b = addConv3D(plugin_factory, *network, *conv3D_5a_act->getOutput(0),
-                         Conv3DType::kTensorFlow, {5, {128, 3, 128, 3, 3}},
-                         Dims{3, {1, 1, 1}}, Dims{3, {1, 1, 1}}, Dims{3, {1, 1, 1}},
-                         weights.at("conv3D_5b_k"), weights.at("conv3D_5b_b"),
-                         "conv3D_5b");
-    assert(conv3D_5b != nullptr);
-
-    // conv3D_5b_act ELU activation op.
-    auto conv3D_5b_act = addElu(plugin_factory, *network, *conv3D_5b->getOutput(0), data_type, "conv3D_5b_act");
-    assert(conv3D_5b_act != nullptr);
-
-    // deconv3D_1 3D transposed convolution op.
-    Dims deconv3D_1_out_dims{4, {9, 64, 21, 65}};
-    auto deconv3D_1 = addConv3DTranspose(plugin_factory, *network, *conv3D_5b_act->getOutput(0),
-                                  Conv3DType::kTensorFlow, {5, {128, 3, 64, 3, 3}}, deconv3D_1_out_dims,
-                                  Dims{3, {2, 2, 2}}, Dims{3, {1, 1, 1}}, Dims{3, {1, 1, 1}},
-                                  weights.at("deconv3D_1_k"), weights.at("deconv3D_1_b"),
-                                  "deconv3D_1");
-    assert(deconv3D_1 != nullptr);
-
-    // deconv3D_1_add_skip tensor add op.
-    auto deconv3D_1_add_skip = network->addElementWise(*(deconv3D_1->getOutput(0)), *(conv3D_4b_act->getOutput(0)), ElementWiseOperation::kSUM);
-    assert(deconv3D_1_add_skip != nullptr);
-
-    // deconv3D_1_act ELU activation op.
-    auto deconv3D_1_act = addElu(plugin_factory, *network, *deconv3D_1_add_skip->getOutput(0), data_type, "deconv3D_1_act");
-    assert(deconv3D_1_act != nullptr);
-
-    // Transpose output: KDHW -> DKHW for conv3d and DKHW -> KDHW for conv3d_transpose
-    auto deconv3D_1_transform = addTransform(plugin_factory, *network, *deconv3D_1_act->getOutput(0), {1, 0, 2, 3}, "deconv3D_1_transform_transform");
-    assert(deconv3D_1_transform != nullptr);
-
-    // deconv3D_2 3D transposed convolution op.
-    Dims deconv3D_2_out_dims{4, {17, 64, 41, 129}};
-    auto deconv3D_2 = addConv3DTranspose(plugin_factory, *network, *deconv3D_1_transform->getOutput(0),
-                                  Conv3DType::kTensorFlow, {5, {64, 3, 64, 3, 3}}, deconv3D_2_out_dims,
-                                  Dims{3, {2, 2, 2}}, Dims{3, {1, 1, 1}}, Dims{3, {1, 1, 1}},
-                                  weights.at("deconv3D_2_k"), weights.at("deconv3D_2_b"),
-                                  "deconv3D_2");
-    assert(deconv3D_2 != nullptr);
-
-    // deconv3D_2_add_skip tensor add op.
-    auto deconv3D_2_add_skip = network->addElementWise(*(deconv3D_2->getOutput(0)), *(conv3D_3b_act->getOutput(0)), ElementWiseOperation::kSUM);
-    assert(deconv3D_2_add_skip != nullptr);
-
-    // deconv3D_2_act ELU activation op.
-    auto deconv3D_2_act = addElu(plugin_factory, *network, *deconv3D_2_add_skip->getOutput(0), data_type, "deconv3D_2_act");
-    assert(deconv3D_2_act != nullptr);
-
-    // Transpose output: KDHW -> DKHW for conv3d and DKHW -> KDHW for conv3d_transpose
-    auto deconv3D_2_transform = addTransform(plugin_factory, *network, *deconv3D_2_act->getOutput(0), {1, 0, 2, 3}, "deconv3D_2_transform_transform");
-    assert(deconv3D_2_transform != nullptr);
-
-    // deconv3D_3 3D transposed convolution op.
-    Dims deconv3D_3_out_dims{4, {35, 64, 81, 257}};
-    auto deconv3D_3 = addConv3DTranspose(plugin_factory, *network, *deconv3D_2_transform->getOutput(0),
-                                  Conv3DType::kTensorFlow, {5, {64, 3, 64, 3, 3}}, deconv3D_3_out_dims,
-                                  Dims{3, {2, 2, 2}}, Dims{3, {0, 1, 1}}, Dims{3, {0, 1, 1}},
-                                  weights.at("deconv3D_3_k"), weights.at("deconv3D_3_b"),
-                                  "deconv3D_3");
-    assert(deconv3D_3 != nullptr);
-
-    // deconv3D_3 output slice op.
-    auto deconv3D_3_slice_layer = addSlice(plugin_factory, *network, *deconv3D_3->getOutput(0),
-                                    deconv3D_3_out_dims,
-                                    {4, {0, 0, 0, 0}},
-                                    {4, {deconv3D_3_out_dims.d[0] - 1, deconv3D_3_out_dims.d[1], deconv3D_3_out_dims.d[2], deconv3D_3_out_dims.d[3]}},
-                                    "deconv3D_3_slice");
-    assert(deconv3D_3_slice_layer != nullptr);
-
-    // deconv3D_3_add_skip tensor add op.
-    auto deconv3D_3_add_skip = network->addElementWise(*(deconv3D_3_slice_layer->getOutput(0)), *(conv3D_2b_act->getOutput(0)), ElementWiseOperation::kSUM);
-    assert(deconv3D_3_add_skip != nullptr);
-
-    // deconv3D_3_act ELU activation op.
-    auto deconv3D_3_act = addElu(plugin_factory, *network, *deconv3D_3_add_skip->getOutput(0), data_type, "deconv3D_3_act");
-    assert(deconv3D_3_act != nullptr);
-
-    // Transpose output: KDHW -> DKHW for conv3d and DKHW -> KDHW for conv3d_transpose
-    auto deconv3D_3_transform = addTransform(plugin_factory, *network, *deconv3D_3_act->getOutput(0), {1, 0, 2, 3}, "deconv3D_3_transform_transform");
-    assert(deconv3D_3_transform != nullptr);
-
-    // deconv3D_4 3D transposed convolution op.
-    Dims deconv3D_4_out_dims{4, {69, 32, 161, 513}};
-    auto deconv3D_4 = addConv3DTranspose(plugin_factory, *network, *deconv3D_3_transform->getOutput(0),
-                                  Conv3DType::kTensorFlow, {5, {64, 3, 32, 3, 3}}, deconv3D_4_out_dims,
-                                  Dims{3, {2, 2, 2}}, Dims{3, {0, 1, 1}}, Dims{3, {0, 1, 1}},
-                                  weights.at("deconv3D_4_k"), weights.at("deconv3D_4_b"),
-                                  "deconv3D_4");
-    assert(deconv3D_4 != nullptr);
-
-    // deconv3D_4 output slice op.
-    auto deconv3D_4_slice_layer = addSlice(plugin_factory, *network, *deconv3D_4->getOutput(0),
-                                    deconv3D_4_out_dims,
-                                    {4, {0, 0, 0, 0}},
-                                    {4, {deconv3D_4_out_dims.d[0] - 1, deconv3D_4_out_dims.d[1], deconv3D_4_out_dims.d[2], deconv3D_4_out_dims.d[3]}},
-                                    "deconv3D_4_slice");
-    assert(deconv3D_4_slice_layer != nullptr);
-
-    // deconv3D_4_add_skip tensor add op.
-    auto deconv3D_4_add_skip = network->addElementWise(*(deconv3D_4_slice_layer->getOutput(0)), *(conv3D_1b_act->getOutput(0)), ElementWiseOperation::kSUM);
-    assert(deconv3D_4_add_skip != nullptr);
-
-    // deconv3D_4_act ELU activation op.
-    auto deconv3D_4_act = addElu(plugin_factory, *network, *deconv3D_4_add_skip->getOutput(0), data_type, "deconv3D_4_act");
-    assert(deconv3D_4_act != nullptr);
-
-    // Transpose output: KDHW -> DKHW for conv3d and DKHW -> KDHW for conv3d_transpose
-    auto deconv3D_4_transform = addTransform(plugin_factory, *network, *deconv3D_4_act->getOutput(0), {1, 0, 2, 3}, "deconv3D_4_transform_transform");
-    assert(deconv3D_4_transform != nullptr);
-
-    // deconv3D_5 3D transposed convolution op.
-    Dims deconv3D_5_out_dims{4, {137, 1, 321, 1025}};
-    auto deconv3D_5 = addConv3DTranspose(plugin_factory, *network, *deconv3D_4_transform->getOutput(0),
-                                  Conv3DType::kTensorFlow, {5, {32, 3, 1, 3, 3}}, deconv3D_5_out_dims,
-                                  Dims{3, {2, 2, 2}}, Dims{3, {0, 1, 1}}, Dims{3, {0, 1, 1}},
-                                  weights.at("deconv3D_5_k"), weights.at("deconv3D_5_b"),
-                                  "deconv3D_5");
-    assert(deconv3D_5 != nullptr);
-
-    // deconv3D_5 output slice op.
-    auto deconv3D_5_slice_layer = addSlice(plugin_factory, *network, *deconv3D_5->getOutput(0),
-                                    deconv3D_5_out_dims,
-                                    {4, {0, 0, 0, 0}},
-                                    {4, {deconv3D_5_out_dims.d[0] - 1, deconv3D_5_out_dims.d[1], deconv3D_5_out_dims.d[2], deconv3D_5_out_dims.d[3]}},
-                                    "deconv3D_5_slice");
-    assert(deconv3D_5_slice_layer != nullptr);
-
     // Softargmax.
-    auto disp = addSoftargmax(plugin_factory, *network, *deconv3D_5_slice_layer->getOutput(0), SoftargmaxType::kMin, "disp_softargmax");
+    auto softargmax = addSoftargmax(plugin_factory, *network, *cost_vol->getOutput(0), SoftargmaxType::kMax, "softargmax_softargmax");
+    assert(softargmax != nullptr);
+
+    // concat tensor concat op.
+    ITensor* concat_inputs[] = {left_conv1_act->getOutput(0), softargmax->getOutput(0)};
+    auto concat = network->addConcatenation(concat_inputs, 2);
+    assert(concat != nullptr);
+
+    // conv2D_1 convolution op.
+    auto conv2D_1 = network->addConvolution(*concat->getOutput(0), 32, DimsHW {3, 3},
+                                       weights.at("conv2D_1_k"), weights.at("conv2D_1_b"));
+    assert(conv2D_1 != nullptr);
+    conv2D_1->setStride( DimsHW {1, 1});
+    conv2D_1->setPadding(DimsHW {1, 1});
+
+    // conv2D_1_act ELU activation op.
+    auto conv2D_1_act = addElu(plugin_factory, *network, *conv2D_1->getOutput(0), data_type, "conv2D_1_act");
+    assert(conv2D_1_act != nullptr);
+
+    // conv2D_2 convolution op.
+    auto conv2D_2 = network->addConvolution(*conv2D_1_act->getOutput(0), 32, DimsHW {3, 3},
+                                       weights.at("conv2D_2_k"), weights.at("conv2D_2_b"));
+    assert(conv2D_2 != nullptr);
+    conv2D_2->setStride( DimsHW {1, 1});
+    conv2D_2->setPadding(DimsHW {1, 1});
+
+    // conv2D_2_act ELU activation op.
+    auto conv2D_2_act = addElu(plugin_factory, *network, *conv2D_2->getOutput(0), data_type, "conv2D_2_act");
+    assert(conv2D_2_act != nullptr);
+
+    // conv2D_3ds convolution op.
+    auto conv2D_3ds = network->addConvolution(*conv2D_2_act->getOutput(0), 64, DimsHW {3, 3},
+                                       weights.at("conv2D_3ds_k"), weights.at("conv2D_3ds_b"));
+    assert(conv2D_3ds != nullptr);
+    conv2D_3ds->setStride( DimsHW {2, 2});
+    conv2D_3ds->setPadding(DimsHW {1, 1});
+
+    // conv2D_3ds_act ELU activation op.
+    auto conv2D_3ds_act = addElu(plugin_factory, *network, *conv2D_3ds->getOutput(0), data_type, "conv2D_3ds_act");
+    assert(conv2D_3ds_act != nullptr);
+
+    // conv2D_4 convolution op.
+    auto conv2D_4 = network->addConvolution(*conv2D_3ds_act->getOutput(0), 64, DimsHW {3, 3},
+                                       weights.at("conv2D_4_k"), weights.at("conv2D_4_b"));
+    assert(conv2D_4 != nullptr);
+    conv2D_4->setStride( DimsHW {1, 1});
+    conv2D_4->setPadding(DimsHW {1, 1});
+
+    // conv2D_4_act ELU activation op.
+    auto conv2D_4_act = addElu(plugin_factory, *network, *conv2D_4->getOutput(0), data_type, "conv2D_4_act");
+    assert(conv2D_4_act != nullptr);
+
+    // conv2D_5 convolution op.
+    auto conv2D_5 = network->addConvolution(*conv2D_4_act->getOutput(0), 64, DimsHW {3, 3},
+                                       weights.at("conv2D_5_k"), weights.at("conv2D_5_b"));
+    assert(conv2D_5 != nullptr);
+    conv2D_5->setStride( DimsHW {1, 1});
+    conv2D_5->setPadding(DimsHW {1, 1});
+
+    // conv2D_5_act ELU activation op.
+    auto conv2D_5_act = addElu(plugin_factory, *network, *conv2D_5->getOutput(0), data_type, "conv2D_5_act");
+    assert(conv2D_5_act != nullptr);
+
+    // conv2D_6ds convolution op.
+    auto conv2D_6ds = network->addConvolution(*conv2D_5_act->getOutput(0), 128, DimsHW {3, 3},
+                                       weights.at("conv2D_6ds_k"), weights.at("conv2D_6ds_b"));
+    assert(conv2D_6ds != nullptr);
+    conv2D_6ds->setStride( DimsHW {2, 2});
+    conv2D_6ds->setPadding(DimsHW {1, 1});
+
+    // conv2D_6ds_act ELU activation op.
+    auto conv2D_6ds_act = addElu(plugin_factory, *network, *conv2D_6ds->getOutput(0), data_type, "conv2D_6ds_act");
+    assert(conv2D_6ds_act != nullptr);
+
+    // conv2D_7 convolution op.
+    auto conv2D_7 = network->addConvolution(*conv2D_6ds_act->getOutput(0), 128, DimsHW {3, 3},
+                                       weights.at("conv2D_7_k"), weights.at("conv2D_7_b"));
+    assert(conv2D_7 != nullptr);
+    conv2D_7->setStride( DimsHW {1, 1});
+    conv2D_7->setPadding(DimsHW {1, 1});
+
+    // conv2D_7_act ELU activation op.
+    auto conv2D_7_act = addElu(plugin_factory, *network, *conv2D_7->getOutput(0), data_type, "conv2D_7_act");
+    assert(conv2D_7_act != nullptr);
+
+    // conv2D_8 convolution op.
+    auto conv2D_8 = network->addConvolution(*conv2D_7_act->getOutput(0), 128, DimsHW {3, 3},
+                                       weights.at("conv2D_8_k"), weights.at("conv2D_8_b"));
+    assert(conv2D_8 != nullptr);
+    conv2D_8->setStride( DimsHW {1, 1});
+    conv2D_8->setPadding(DimsHW {1, 1});
+
+    // conv2D_8_act ELU activation op.
+    auto conv2D_8_act = addElu(plugin_factory, *network, *conv2D_8->getOutput(0), data_type, "conv2D_8_act");
+    assert(conv2D_8_act != nullptr);
+
+    // deconv2D_1 transposed convolution op.
+    auto deconv2D_1 = network->addDeconvolution(*conv2D_8_act->getOutput(0), 64, DimsHW {3, 3},
+                                         weights.at("deconv2D_1_k"), weights.at("deconv2D_1_b"));
+    assert(deconv2D_1 != nullptr);
+    deconv2D_1->setStride( DimsHW {2, 2});
+    deconv2D_1->setPadding(DimsHW {1, 1});
+
+    // deconv2D_1_add_skip tensor add op.
+    auto deconv2D_1_add_skip = network->addElementWise(*(deconv2D_1->getOutput(0)), *(conv2D_5_act->getOutput(0)), ElementWiseOperation::kSUM);
+    assert(deconv2D_1_add_skip != nullptr);
+
+    // deconv2D_1_act ELU activation op.
+    auto deconv2D_1_act = addElu(plugin_factory, *network, *deconv2D_1_add_skip->getOutput(0), data_type, "deconv2D_1_act");
+    assert(deconv2D_1_act != nullptr);
+
+    // deconv2D_2 transposed convolution op.
+    auto deconv2D_2 = network->addDeconvolution(*deconv2D_1_act->getOutput(0), 32, DimsHW {3, 3},
+                                         weights.at("deconv2D_2_k"), weights.at("deconv2D_2_b"));
+    assert(deconv2D_2 != nullptr);
+    deconv2D_2->setStride( DimsHW {2, 2});
+    deconv2D_2->setPadding(DimsHW {1, 1});
+
+    // deconv2D_2_add_skip tensor add op.
+    auto deconv2D_2_add_skip = network->addElementWise(*(deconv2D_2->getOutput(0)), *(conv2D_2_act->getOutput(0)), ElementWiseOperation::kSUM);
+    assert(deconv2D_2_add_skip != nullptr);
+
+    // deconv2D_2_act ELU activation op.
+    auto deconv2D_2_act = addElu(plugin_factory, *network, *deconv2D_2_add_skip->getOutput(0), data_type, "deconv2D_2_act");
+    assert(deconv2D_2_act != nullptr);
+
+    // deconv2D_3 transposed convolution op.
+    auto deconv2D_3 = network->addDeconvolution(*deconv2D_2_act->getOutput(0), 1, DimsHW {3, 3},
+                                         weights.at("deconv2D_3_k"), weights.at("deconv2D_3_b"));
+    assert(deconv2D_3 != nullptr);
+    deconv2D_3->setStride( DimsHW {2, 2});
+    deconv2D_3->setPadding(DimsHW {1, 1});
+
+    // disp sigmoid activation op.
+    auto disp = network->addActivation(*deconv2D_3->getOutput(0), ActivationType::kSIGMOID);
     assert(disp != nullptr);
 
     auto disp_out = disp->getOutput(0);

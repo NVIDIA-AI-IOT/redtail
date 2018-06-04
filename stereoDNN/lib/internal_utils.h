@@ -67,6 +67,9 @@ public:
     static cudaError_t computeCostVolume(const T* left, const T* right, Dims in_dims, T* cost_vol, Dims out_dims, cudaStream_t stream);
 
     template<typename T>
+    static cudaError_t computeCorrCostVolume(const T* left, const T* right, Dims in_dims, T* cost_vol, Dims out_dims, cudaStream_t stream);
+
+    template<typename T>
     static cudaError_t addDBiasTo3DConv(const T* bias, Dims bias_dims, T* conv, Dims conv_dims, cudaStream_t stream);
 
     static cudaError_t fp32Tofp16(const float* src,    uint16_t* dst, size_t size, cudaStream_t stream);
@@ -104,7 +107,8 @@ public:
     IPlugin* createEluPlugin(DataType data_type, std::string name) override;
 
     // Cost volume plugin.
-    IPlugin* createCostVolumePlugin(int max_disparity, std::string name) override;
+    IPlugin* createCostVolumePlugin(CostVolumeType cv_type, int max_disparity,
+                                    std::string name) override;
 
     // 3D convolution.
     IPlugin* createConv3DPlugin(Conv3DType conv_type, Dims kernel_dims,
@@ -128,7 +132,7 @@ public:
     IPlugin* createSlicePlugin(Dims dims, Dims slice_start, Dims slice_end,
                                std::string name) override;
 
-    IPlugin* createSoftargmaxPlugin(std::string name) override;
+    IPlugin* createSoftargmaxPlugin(SoftargmaxType sm_type, std::string name) override;
 
 private:
     // TensorRT IPlugin interface has protected dtor so cannot use unique_ptr

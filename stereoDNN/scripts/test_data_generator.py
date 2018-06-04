@@ -238,7 +238,26 @@ def create_cost_volume_data(data_dir):
         cost_volume = tf.concat([left_disp, right_disp], axis=4)
     
         return cost_volume
+
+    def corr_cost_volume_left(left, right, max_disp):
+        height = int(left.shape[1])
+        width  = int(left.shape[2])
+        depth  = int(left.shape[3])
+
+        right_padded = tf.pad(right, [[0, 0], [0, 0], [max_disp - 1, 0], [0,0]], "CONSTANT")
+        right_disp   = tf.extract_image_patches(right_padded, [1, height, width, 1], [1, 1, 1, 1], [1, 1, 1, 1], padding="VALID")
+        right_disp   = tf.squeeze(right_disp, axis=1)
+        disp_dim     = int(right_disp.shape[1])
+        right_disp   = tf.reshape(right_disp, [-1, disp_dim, height, width, depth])
+        right_disp   = tf.reverse(right_disp, [1])
         
+        left_disp = tf.expand_dims(left, axis=1)
+        left_disp = tf.tile(left_disp, [1, disp_dim, 1, 1, 1])
+        
+        corr_cost_volume = tf.reduce_sum(tf.multiply(left_disp, right_disp), axis=4, keep_dims=True)
+    
+        return corr_cost_volume
+
     print("---")
     print("Creating data for CostVolume plugin...")
     print("---")
@@ -267,8 +286,19 @@ def create_cost_volume_data(data_dir):
     write_bin(nhwc_to_nchw(right),      os.path.join(data_dir, 'cost_vol_02_r.bin'))
     write_bin(ndhwc_to_ndchw(cost_vol), os.path.join(data_dir, 'cost_vol_02_cv.bin'))
 
+    # Correlation basic test: 6x6x4 input, max_disp == 2, output is 6x6x2.
+    np.random.seed(1)
+    in_shape = [1, 6, 6, 4] # NHWC
+    left  = get_rand(in_shape) 
+    right = get_rand(in_shape)
+    max_disp = 2
+    cost_vol = corr_cost_volume_left(left, right, max_disp).eval()
+    write_bin(nhwc_to_nchw(left),       os.path.join(data_dir, 'corr_cost_vol_01_l.bin'))
+    write_bin(nhwc_to_nchw(right),      os.path.join(data_dir, 'corr_cost_vol_01_r.bin'))
+    write_bin(ndhwc_to_ndchw(cost_vol), os.path.join(data_dir, 'corr_cost_vol_01_cv.bin'))
+
 def create_softargmax_data(data_dir):
-    def softargmax(volume):
+    def softargmin(volume):
         input_depth = int(volume.shape[1])
         index_steps = tf.constant(np.reshape(np.array(range(input_depth)),(1,input_depth,1,1,1)), dtype=tf.float32)
         prob_volume = tf.nn.softmax(tf.multiply(volume, -1.0), dim=1)
@@ -276,23 +306,38 @@ def create_softargmax_data(data_dir):
     
         return softargmax_result
         
+    def softargmax(volume):
+        input_depth = int(volume.shape[1])
+        index_steps = tf.constant(np.reshape(np.array(range(input_depth)),(1,input_depth,1,1,1)), dtype=tf.float32)
+        prob_volume = tf.nn.softmax(volume, dim=1)
+        softargmax_result = tf.reduce_sum(tf.multiply(prob_volume, index_steps), axis=1)
+            
+        return softargmax_result
+        
     print("---")
     print("Creating data for Softargmax plugin...")
     print("---")
 
-    # Basic test: 4x5x5x1 input, output is 5x5x1.
+    # Basic argmin test: 4x5x5x1 input, output is 5x5x1.
     np.random.seed(1)
     x = get_rand([1, 4, 5, 7, 1]) # NDHWC
-    y = softargmax(x).eval()
+    y = softargmin(x).eval()
     write_bin(ndhwc_to_ndchw(x), os.path.join(data_dir, 'softargmax_01_x.bin'))
     write_bin(nhwc_to_nchw(y),   os.path.join(data_dir, 'softargmax_01_y.bin'))
 
-    # Large test: 2x12x33x65x1 input, output is 2x33x65x1.
+    # Large argmin test: 2x12x33x65x1 input, output is 2x33x65x1.
     np.random.seed(1)
     x = get_rand([2, 12, 33, 65, 1]) # NDHWC
-    y = softargmax(x).eval()
+    y = softargmin(x).eval()
     write_bin(ndhwc_to_ndchw(x), os.path.join(data_dir, 'softargmax_02_x.bin'))
     write_bin(nhwc_to_nchw(y),   os.path.join(data_dir, 'softargmax_02_y.bin'))
+
+    # Basic argmax test: 4x5x5x1 input, output is 5x5x1.
+    np.random.seed(1)
+    x = get_rand([1, 4, 5, 7, 1]) # NDHWC
+    y = softargmax(x).eval()
+    write_bin(ndhwc_to_ndchw(x), os.path.join(data_dir, 'softargmax_03_x.bin'))
+    write_bin(nhwc_to_nchw(y),   os.path.join(data_dir, 'softargmax_03_y.bin'))
 
 def main():
     config = tf.ConfigProto(allow_soft_placement=True, log_device_placement=True)
