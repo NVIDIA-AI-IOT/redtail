@@ -79,9 +79,9 @@ private:
                             float /*linear_control_val*/, float /*angular_control_val*/, bool /*has_command*/) override;
     };
 
-    class APMRover: public Vehicle
+    class APMRoverRC: public Vehicle
     {
-        std::string getName()             override { return "APMRover"; }
+        std::string getName()             override { return "APMRoverRC"; }
         std::string getOffboardModeName() override { return "MANUAL"; }
         bool init(ros::NodeHandle& nh) override;
         void printArgs() override;
@@ -99,6 +99,15 @@ private:
         int rc_throttle_dz_   = 30;
         int rc_throttle_min_  = 1100;
         int rc_throttle_max_  = 1900;
+    };
+
+    class APMRoverWaypoint: public Vehicle
+    {
+        std::string getName()             override { return "APMRoverWaypoint"; }
+        std::string getOffboardModeName() override { return "GUIDED"; }
+        bool init(ros::NodeHandle& nh) override;
+        void executeCommand(const PX4Controller& ctl, const geometry_msgs::PoseStamped& goto_pose,
+                            float /*linear_control_val*/, float /*angular_control_val*/, bool /*has_command*/) override;
     };
 
 private:

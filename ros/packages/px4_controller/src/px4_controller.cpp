@@ -40,7 +40,7 @@ void PX4Controller::Drone::executeCommand(const PX4Controller& ctl, const geomet
     ctl.local_pose_pub_.publish(goto_pose);
 }
 
-bool PX4Controller::APMRover::init(ros::NodeHandle& nh)
+bool PX4Controller::APMRoverRC::init(ros::NodeHandle& nh)
 {
     nh.param("linear_speed_scale", linear_speed_scale_, 1.0f);
     nh.param("turn_angle_scale",   turn_angle_scale_,   1.0f);
@@ -92,7 +92,7 @@ bool PX4Controller::APMRover::init(ros::NodeHandle& nh)
     return true;
 }
 
-void PX4Controller::APMRover::printArgs()
+void PX4Controller::APMRoverRC::printArgs()
 {
     ROS_INFO("(%s) Speed scale      : %.1f", getName().c_str(), linear_speed_scale_);
     ROS_INFO("(%s) Turn angle scale : %.1f", getName().c_str(), turn_angle_scale_);
@@ -106,7 +106,7 @@ void PX4Controller::APMRover::printArgs()
     ROS_INFO("(%s) Throttle max     : %d",   getName().c_str(), rc_throttle_max_);
 }
 
-void PX4Controller::APMRover::executeCommand(const PX4Controller& ctl, const geometry_msgs::PoseStamped& goto_pose,
+void PX4Controller::APMRoverRC::executeCommand(const PX4Controller& ctl, const geometry_msgs::PoseStamped& goto_pose,
                                              float linear_control_val, float angular_control_val, bool has_command)
 {
     ROS_ASSERT(is_initialized_);
@@ -123,10 +123,25 @@ void PX4Controller::APMRover::executeCommand(const PX4Controller& ctl, const geo
     rc_override.channels[2] = rc_throttle_trim_ + throttle_dz + throttle_delta;
     if(has_command)
     {
-        ROS_DEBUG("APMRover::executeCommand: %d, %d (%.2f, %.2f)", (int)rc_override.channels[0], (int)rc_override.channels[2], linear_control_val, angular_control_val);
+        ROS_DEBUG("APMRoverRC::executeCommand: %d, %d (%.2f, %.2f)", (int)rc_override.channels[0], (int)rc_override.channels[2], linear_control_val, angular_control_val);
         rc_pub_.publish(rc_override);
     }
 }
+
+bool PX4Controller::APMRoverWaypoint::init(ros::NodeHandle& nh)
+{
+    is_initialized_ = true;
+    return true;
+}
+
+void PX4Controller::APMRoverWaypoint::executeCommand(const PX4Controller& ctl, const geometry_msgs::PoseStamped& goto_pose,
+                                          float /*linear_control_val*/, float /*angular_control_val*/, bool /*has_command*/)
+{
+    ROS_ASSERT(is_initialized_);
+    // Publish pose update to MAVROS
+    ctl.local_pose_pub_.publish(goto_pose);
+}
+
 
 void PX4Controller::px4StateCallback(const mavros_msgs::State::ConstPtr &msg)
 {
@@ -374,8 +389,10 @@ bool PX4Controller::parseArguments(const ros::NodeHandle& nh)
     nh.param<std::string>("vehicle_type", vehicle_type, "drone");
     if (vehicle_type == "drone")
         vehicle_ = std::make_unique<Drone>();
-    else if (vehicle_type == "apmrover")
-        vehicle_ = std::make_unique<APMRover>();
+    else if (vehicle_type == "apmroverrc")
+        vehicle_ = std::make_unique<APMRoverRC>();
+    else if (vehicle_type == "apmroverwaypoint")
+        vehicle_ = std::make_unique<APMRoverWaypoint>();
     else
     {
         ROS_ERROR("Unknown vehicle type: %s", vehicle_type.c_str());

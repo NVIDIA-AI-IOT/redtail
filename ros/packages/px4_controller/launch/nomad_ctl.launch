@@ -1,5 +1,5 @@
 <launch>
-    <arg name="vehicle_type"          default="apmrover" />
+    <arg name="vehicle_type"          default="apmroverrc" />
     <arg name="altitude_gain"         default="0" />
     <arg name="linear_speed"          default="2.0" />
     <arg name="linear_speed_scale"    default="120" />
