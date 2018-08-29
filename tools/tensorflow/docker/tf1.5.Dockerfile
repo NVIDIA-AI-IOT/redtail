@@ -8,8 +8,6 @@ FROM nvidia/cuda:9.0-cudnn7-devel-ubuntu16.04
 
 ENV HOME /root
 
-ARG TENSORRT_TAR_FILE
-
 WORKDIR ${HOME}
 
 RUN apt-get update && apt-get -y  --no-install-recommends install software-properties-common \

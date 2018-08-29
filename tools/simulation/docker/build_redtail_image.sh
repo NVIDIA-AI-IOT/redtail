@@ -7,7 +7,7 @@ TENSORRT_TAR_FILE=$1
 if [[ -z "${TENSORRT_TAR_FILE}" ]]; then
     echo "First argument is missing."
     echo "Usage  : build_redtail_image.sh <full_path_to_TensorRT_tar_file>"
-    echo "Example: build_redtail_image.sh /data/downloads/NVIDIA/TensorRT-3.0.2.Ubuntu-16.04.3.x86_64.cuda-9.0.cudnn7.0.tar.gz"
+    echo "Example: build_redtail_image.sh /data/downloads/NVIDIA/TensorRT-4.0.1.6.Ubuntu-16.04.4.x86_64-gnu.cuda-9.0.cudnn7.1.tar.gz"
     exit 1
 fi
 
