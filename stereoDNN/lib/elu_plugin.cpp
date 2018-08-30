@@ -12,17 +12,20 @@ using namespace nvinfer1;
 // -----------------------------------------------------------------
 // ELU activation function plugin.
 // -----------------------------------------------------------------
-class EluPlugin: public IPlugin
+class EluPlugin: public IPluginExt
 {
 public:
     EluPlugin(DataType data_type, ILogger& log, std::string name):
         data_type_(trtToCudnnDataType(data_type)), log_(log), name_(name)
     {
-        // REVIEW alexeyk: TRT currently does not support FP16 data tensors.
-        assert(data_type == DataType::kFLOAT);
     }
 
     EluPlugin(EluPlugin&&) = delete;
+
+    bool supportsFormat(DataType type, PluginFormat format) const override
+    {
+        return (format == PluginFormat::kNCHW) && (type == DataType::kFLOAT || type == DataType::kHALF);
+    }
 
     int getNbOutputs() const override
     {
@@ -32,13 +35,14 @@ public:
     Dims getOutputDimensions(int index, const Dims* inputs, int nbInputDims) override
     {
         assert(nbInputDims == 1);
-        in_dims_  = inputs[0];
+        in_dims_ = inputs[0];
         // No restrictions on input dims.
 
         return in_dims_;
     }
 
-    void configure(const Dims* inputDims, int nbInputs, const Dims* outputDims, int nbOutputs, int maxBatchSize) override
+    void configureWithFormat(const Dims* inputDims, int nbInputs, const Dims* outputDims, int nbOutputs, 
+                             DataType type, PluginFormat format, int maxBatchSize) override
     {
         assert(nbInputs == 1);
         assert(nbOutputs == 1);
@@ -56,6 +60,7 @@ public:
         setTensorDescriptor(maxBatchSize);
 
         log_.log(ILogger::Severity::kINFO, (name_ + ": Dims: " + DimsUtils::toString(in_dims_)).c_str());
+        log_.log(ILogger::Severity::kINFO, (name_ + ": " + std::to_string((int)type)).c_str());
     }
 
     int initialize() override

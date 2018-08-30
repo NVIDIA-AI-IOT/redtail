@@ -100,6 +100,8 @@ FloatVec runPlugin(int batch_size, const std::vector<NetInput>& inputs, Dims out
         {
             auto input = network->addInput(inputs[i].name.c_str(), data_type,
                                            DimsCHW(in_dims.d[0], in_dims.d[1], in_dims.d[2]));
+            // auto input = network->addInput(inputs[i].name.c_str(), DataType::kFLOAT,
+            //                                DimsCHW(in_dims.d[0], in_dims.d[1], in_dims.d[2]));
             EXPECT_NE(input, nullptr);
             plugin_inputs[i] = input;
         }
@@ -123,9 +125,12 @@ FloatVec runPlugin(int batch_size, const std::vector<NetInput>& inputs, Dims out
     // Create plugin. The factory method can create additional layers/plugins.
     IPlugin* plugin = factory_op();
     EXPECT_NE(plugin, nullptr);
+    auto plugin_ext = dynamic_cast<IPluginExt*>(plugin);
 
     // Add the plugin to the network.
-    auto plugin_layer = network->addPlugin(&plugin_inputs[0], inputs.size(), *plugin);
+    auto plugin_layer = plugin_ext != nullptr 
+                        ? network->addPluginExt(&plugin_inputs[0], inputs.size(), *plugin_ext)
+                        : network->addPlugin(&plugin_inputs[0], inputs.size(), *plugin);
     EXPECT_NE(plugin_layer, nullptr);
 
     ILayer* out_layer = post_proc_op(network, plugin_layer, factory);
@@ -137,6 +142,9 @@ FloatVec runPlugin(int batch_size, const std::vector<NetInput>& inputs, Dims out
     network->markOutput(*out_layer_out);
 
     // Build the engine.
+    // builder->setMinFindIterations(2);
+    // builder->setAverageFindIterations(2);
+
     builder->setMaxBatchSize(batch_size);
     // "ought to be enough for anybody."
     builder->setMaxWorkspaceSize(1024 * 1024 * 1024);
@@ -155,6 +163,7 @@ FloatVec runPlugin(int batch_size, const std::vector<NetInput>& inputs, Dims out
     EXPECT_EQ(engine->getNbBindings(), buffers.size());
 
     size_t elt_size_bytes = data_type == DataType::kHALF ? 2 : 4;
+    //size_t elt_size_bytes = 4;
 
     for (size_t i = 0; i < inputs.size(); i++)
     {
@@ -164,6 +173,7 @@ FloatVec runPlugin(int batch_size, const std::vector<NetInput>& inputs, Dims out
         CHECKL(cudaMalloc(&buffers[i], inputs[i].data.size() * elt_size_bytes), *g_logger);
         // Do FP32 -> FP16 of input if necessary.
         if (data_type == DataType::kFLOAT)
+        //if (true)
             CHECKL(cudaMemcpy(buffers[i], inputs[i].data.data(), inputs[i].data.size() * elt_size_bytes, cudaMemcpyHostToDevice), *g_logger);
         else
         {
@@ -195,6 +205,7 @@ FloatVec runPlugin(int batch_size, const std::vector<NetInput>& inputs, Dims out
     FloatVec out_h(out_size);
     // Do FP32 -> FP16 of input if necessary.
     if (data_type == DataType::kFLOAT)
+    //if (true)
     {    
         auto out_h_p = const_cast<float*>(out_h.data());
         CHECKL(cudaMemcpy(out_h_p, buffers[out_idx], out_h.size() * sizeof(float), cudaMemcpyDeviceToHost), *g_logger);
@@ -266,6 +277,30 @@ TEST(EluPluginTests, Basic)
     ASSERT_EQ(out.size(), actual.size());
     for (size_t i = 0; i < actual.size(); i++)
         EXPECT_FLOAT_EQ(out[i], actual[i]) << "Vectors 'actual' and 'out' differ at index " << i;
+}
+
+TEST(EluPluginTests, BasicFP16)
+{
+    Dims in_dims;
+    Dims out_dims;
+    FloatVec in  = readBinaryFile(g_data_dir + "elu_i_01.bin", in_dims);
+    FloatVec out = readBinaryFile(g_data_dir + "elu_o_01.bin", out_dims);
+    ASSERT_EQ(in_dims.nbDims, out_dims.nbDims);
+    ASSERT_EQ(in_dims.nbDims, 4);
+    ASSERT_EQ(in_dims.d[0],   1);
+
+    auto factory = IPluginContainer::create(*g_logger);
+    auto actual  = runPlugin(1, {{"input", in_dims, in}}, out_dims,
+                             [&] { return factory->createEluPlugin(DataType::kHALF, "ELU"); },
+                             [] (INetworkDefinition*, ILayer* plugin, IPluginContainer&) { return plugin; },
+                             *factory, DataType::kHALF);
+
+    ASSERT_EQ(out.size(), actual.size());
+    for (size_t i = 0; i < actual.size(); i++)
+    {
+        EXPECT_FLOAT_EQ(out[i], actual[i]) << "Vectors 'actual' and 'out' differ at index " << i;
+        break;
+    }
 }
 
 TEST(EluPluginTests, Input4DBatchSize2)
