@@ -123,6 +123,7 @@ network->markOutput(*{0}_out);
 auto {1} = network->addScale(*{0}, ScaleMode::kUNIFORM,
                              weights.at("{1}_shift"), weights.at("{1}_scale"), weights.at("{1}_power"));
 assert({1} != nullptr);
+{1}->setName("{1}");
 
 """
         code = code.format(input, name)
@@ -150,6 +151,7 @@ assert({1} != nullptr);
 auto {1} = network->addConvolution(*{0}->getOutput(0), {2}, DimsHW {{{3}, {4}}},
                                    weights.at("{1}_k"), weights.at("{1}_b"));
 assert({1} != nullptr);
+{1}->setName("{1}");
 {1}->setStride( DimsHW {{{5}, {6}}});
 {1}->setPadding(DimsHW {{{7}, {8}}});
 
@@ -230,6 +232,7 @@ assert({1}_pad != nullptr);
 auto {1} = network->addDeconvolution(*{0}->getOutput(0), {2}, DimsHW {{{3}, {4}}},
                                      weights.at("{1}_k"), weights.at("{1}_b"));
 assert({1} != nullptr);
+{1}->setName("{1}");
 {1}->setStride( DimsHW {{{5}, {6}}});
 {1}->setPadding(DimsHW {{{7}, {8}}});
 
@@ -449,6 +452,7 @@ assert({0}_slice_layer != nullptr);
 // {1} ELU activation op.
 auto {1} = addElu(plugin_factory, *network, *{0}->getOutput(0), data_type, "{1}");
 assert({1} != nullptr);
+{1}->setName("{1}");
 
 """
         code = code.format(input, name)
@@ -461,6 +465,7 @@ assert({1} != nullptr);
 // {1} sigmoid activation op.
 auto {1} = network->addActivation(*{0}->getOutput(0), ActivationType::kSIGMOID);
 assert({1} != nullptr);
+{1}->setName("{1}");
 
 """
         code = code.format(input, name)
@@ -474,6 +479,7 @@ assert({1} != nullptr);
 auto {2} = addCostVolume(plugin_factory, *network, *{0}->getOutput(0), *{1}->getOutput(0),
                          {3}, {4}, "{2}");
 assert({2} != nullptr);
+{2}->setName("{2}");
 
 """
         g = tf.get_default_graph()
@@ -518,6 +524,7 @@ assert({1} != nullptr);
 // {2} tensor add op.
 auto {2} = network->addElementWise(*({0}->getOutput(0)), *({1}->getOutput(0)), ElementWiseOperation::kSUM);
 assert({2} != nullptr);
+{2}->setName("{2}");
 
 """
         code = code.format(t1, t2, name)
@@ -529,6 +536,7 @@ assert({2} != nullptr);
 // Softargmax.
 auto {1} = addSoftargmax(plugin_factory, *network, *{0}->getOutput(0), {2}, "{1}_softargmax");
 assert({1} != nullptr);
+{1}->setName("{1}");
 
 """
         code = code.format(input, name,

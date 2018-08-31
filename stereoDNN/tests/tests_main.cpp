@@ -77,6 +77,10 @@ FloatVec runPlugin(int batch_size, const std::vector<NetInput>& inputs, Dims out
     // REVIEW alexeyk: assuming single output for now.
     const char* output_name = "output";
 
+    // Assuming that input tensors are in FP32 format, TRT will do the necessary conversion.
+    // Though the code below supports FP16 input tensors, our sample code uses FP32 only.
+    DataType input_data_type = DataType::kFLOAT;
+
     IBuilder* builder = createInferBuilder(*g_logger);
     // Note: must use EXPECT_* as ASSERT_ contains return statement.
     EXPECT_NE(builder, nullptr);
@@ -98,10 +102,8 @@ FloatVec runPlugin(int batch_size, const std::vector<NetInput>& inputs, Dims out
         // addInput currently supports only 1D-3D input.
         if (in_dims.nbDims <= 3)
         {
-            auto input = network->addInput(inputs[i].name.c_str(), data_type,
+            auto input = network->addInput(inputs[i].name.c_str(), input_data_type,
                                            DimsCHW(in_dims.d[0], in_dims.d[1], in_dims.d[2]));
-            // auto input = network->addInput(inputs[i].name.c_str(), DataType::kFLOAT,
-            //                                DimsCHW(in_dims.d[0], in_dims.d[1], in_dims.d[2]));
             EXPECT_NE(input, nullptr);
             plugin_inputs[i] = input;
         }
@@ -110,7 +112,7 @@ FloatVec runPlugin(int batch_size, const std::vector<NetInput>& inputs, Dims out
             // Create input with flattened dims.
             EXPECT_EQ(DimsUtils::getTensorSize(in_dims), (int)DimsUtils::getTensorSize(in_dims));
             DimsCHW flat_dims{1, 1, (int)DimsUtils::getTensorSize(in_dims)};
-            auto input = network->addInput(inputs[i].name.c_str(), data_type, flat_dims);
+            auto input = network->addInput(inputs[i].name.c_str(), input_data_type, flat_dims);
             EXPECT_NE(input, nullptr);
             // Add reshape layer to restore original dims.
             auto shuf = network->addShuffle(*input);
@@ -128,7 +130,7 @@ FloatVec runPlugin(int batch_size, const std::vector<NetInput>& inputs, Dims out
     auto plugin_ext = dynamic_cast<IPluginExt*>(plugin);
 
     // Add the plugin to the network.
-    auto plugin_layer = plugin_ext != nullptr 
+    auto plugin_layer = plugin_ext != nullptr
                         ? network->addPluginExt(&plugin_inputs[0], inputs.size(), *plugin_ext)
                         : network->addPlugin(&plugin_inputs[0], inputs.size(), *plugin);
     EXPECT_NE(plugin_layer, nullptr);
@@ -150,7 +152,7 @@ FloatVec runPlugin(int batch_size, const std::vector<NetInput>& inputs, Dims out
     builder->setMaxWorkspaceSize(1024 * 1024 * 1024);
 
     builder->setHalf2Mode(data_type == DataType::kHALF);
-    
+
     auto engine = builder->buildCudaEngine(*network);
     EXPECT_NE(engine, nullptr);
     // Network and builder can be destroyed right after network is built.
@@ -162,8 +164,7 @@ FloatVec runPlugin(int batch_size, const std::vector<NetInput>& inputs, Dims out
     std::vector<void*> buffers(inputs.size() + 1);
     EXPECT_EQ(engine->getNbBindings(), buffers.size());
 
-    size_t elt_size_bytes = data_type == DataType::kHALF ? 2 : 4;
-    //size_t elt_size_bytes = 4;
+    size_t elt_size_bytes = input_data_type == DataType::kHALF ? 2 : 4;
 
     for (size_t i = 0; i < inputs.size(); i++)
     {
@@ -172,8 +173,7 @@ FloatVec runPlugin(int batch_size, const std::vector<NetInput>& inputs, Dims out
         // Allocate and copy.
         CHECKL(cudaMalloc(&buffers[i], inputs[i].data.size() * elt_size_bytes), *g_logger);
         // Do FP32 -> FP16 of input if necessary.
-        if (data_type == DataType::kFLOAT)
-        //if (true)
+        if (input_data_type == DataType::kFLOAT)
             CHECKL(cudaMemcpy(buffers[i], inputs[i].data.data(), inputs[i].data.size() * elt_size_bytes, cudaMemcpyHostToDevice), *g_logger);
         else
         {
@@ -204,13 +204,12 @@ FloatVec runPlugin(int batch_size, const std::vector<NetInput>& inputs, Dims out
     // Copy results back to host.
     FloatVec out_h(out_size);
     // Do FP32 -> FP16 of input if necessary.
-    if (data_type == DataType::kFLOAT)
-    //if (true)
-    {    
+    if (input_data_type == DataType::kFLOAT)
+    {
         auto out_h_p = const_cast<float*>(out_h.data());
         CHECKL(cudaMemcpy(out_h_p, buffers[out_idx], out_h.size() * sizeof(float), cudaMemcpyDeviceToHost), *g_logger);
     }
-    else if (data_type == DataType::kHALF)
+    else if (input_data_type == DataType::kHALF)
     {
         std::vector<uint16_t> out_h_16(out_size);
         auto out_h_p = const_cast<uint16_t*>(out_h_16.data());
@@ -289,18 +288,16 @@ TEST(EluPluginTests, BasicFP16)
     ASSERT_EQ(in_dims.nbDims, 4);
     ASSERT_EQ(in_dims.d[0],   1);
 
+    auto data_type = DataType::kHALF;
     auto factory = IPluginContainer::create(*g_logger);
     auto actual  = runPlugin(1, {{"input", in_dims, in}}, out_dims,
-                             [&] { return factory->createEluPlugin(DataType::kHALF, "ELU"); },
+                             [&] { return factory->createEluPlugin(data_type, "ELU"); },
                              [] (INetworkDefinition*, ILayer* plugin, IPluginContainer&) { return plugin; },
-                             *factory, DataType::kHALF);
+                             *factory, data_type);
 
     ASSERT_EQ(out.size(), actual.size());
     for (size_t i = 0; i < actual.size(); i++)
-    {
-        EXPECT_FLOAT_EQ(out[i], actual[i]) << "Vectors 'actual' and 'out' differ at index " << i;
-        break;
-    }
+        EXPECT_NEAR(out[i], actual[i], 0.01) << "Vectors 'actual' and 'out' differ at index " << i;
 }
 
 TEST(EluPluginTests, Input4DBatchSize2)
@@ -622,7 +619,7 @@ ILayer* addConv3DTranPostProc(INetworkDefinition* network, ILayer* plugin, IPlug
 
 ILayer* addConv3DTranSliceLayer(Dims dims, INetworkDefinition* network, ILayer* src_layer, IPluginContainer& factory)
 {
-    auto slice_plugin = factory.createSlicePlugin(dims, 
+    auto slice_plugin = factory.createSlicePlugin(dims,
                                                   {4, {0, 0, 0, 0}},
                                                   {4, {dims.d[0] - 1, dims.d[1], dims.d[2], dims.d[3]}},
                                                   "Slice");
@@ -726,7 +723,7 @@ TEST(Conv3DTransposePluginTests, DHWStridesAndPadAsymDWithMultiK)
                             },
                             [&] (INetworkDefinition* network, ILayer* plugin, IPluginContainer& f)
                             {
-                                 auto slice_plugin = f.createSlicePlugin(out_dims, 
+                                 auto slice_plugin = f.createSlicePlugin(out_dims,
                                                                          {4, {0, 0, 0, 0}},
                                                                          {4, {x_dims.d[1], x_dims.d[2], x_dims.d[3], x_dims.d[4]}},
                                                                          "Slice");
@@ -776,7 +773,7 @@ TEST(Conv3DTransposePluginTests, DHWStridesAndPadAsymDWithMultiKWithBiasAndElu)
                             },
                             [&] (INetworkDefinition* network, ILayer* plugin, IPluginContainer& f)
                             {
-                                 auto slice_plugin = f.createSlicePlugin(out_dims, 
+                                 auto slice_plugin = f.createSlicePlugin(out_dims,
                                                                          {4, {0, 0, 0, 0}},
                                                                          {4, {x_dims.d[1], x_dims.d[2], x_dims.d[3], x_dims.d[4]}},
                                                                          "Slice");

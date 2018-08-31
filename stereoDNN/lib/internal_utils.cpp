@@ -63,6 +63,41 @@ std::string DimsUtils::toString(Dims dims)
 }
 
 // -----------------------------------------------------------------
+// String helpers.
+// -----------------------------------------------------------------
+std::string StrUtils::toString(DataType type)
+{
+    switch (type)
+    {
+    case DataType::kFLOAT:
+        return "Float";
+    case DataType::kHALF:
+        return "Half";
+    case DataType::kINT8:
+        return "INT8";
+    case DataType::kINT32:
+        return "kINT32";
+    default:
+        return "Unknown (" + std::to_string((int)type) + ")";
+    }
+}
+
+std::string StrUtils::toString(PluginFormat format)
+{
+    switch (format)
+    {
+    case PluginFormat::kNCHW:
+        return "NCHW";
+    case PluginFormat::kNC2HW2:
+        return "NC2HW2";
+    case PluginFormat::kNHWC8:
+        return "NHWC8";
+    default:
+        return "Unknown (" + std::to_string((int)format) + ")";
+    }
+}
+
+// -----------------------------------------------------------------
 // Conversion helpers.
 // -----------------------------------------------------------------
 cudnnDataType_t trtToCudnnDataType(DataType trt_data_type)
@@ -89,6 +124,15 @@ std::unique_ptr<IPluginContainer> IPluginContainer::create(ILogger& log)
 // -----------------------------------------------------------------
 // Plugins helper functions.
 // -----------------------------------------------------------------
+IPluginLayer* addPlugin(INetworkDefinition& network, ITensor* const* inputs, int num_inputs, IPlugin* plugin)
+{
+    auto plugin_ext   = dynamic_cast<IPluginExt*>(plugin);
+    auto plugin_layer = plugin_ext != nullptr 
+                        ? network.addPluginExt(inputs, num_inputs, *plugin_ext)
+                        : network.addPlugin(inputs, num_inputs, *plugin);
+    return plugin_layer;
+}
+
 ILayer* addElu(IPluginContainer& plugin_factory, INetworkDefinition& network, ITensor& input,
                DataType data_type, const std::string& name)
 {
@@ -97,7 +141,7 @@ ILayer* addElu(IPluginContainer& plugin_factory, INetworkDefinition& network, IT
     assert(plugin != nullptr);
     // Add to the network.
     ITensor* inputs[] = {&input};
-    auto     layer    = network.addPlugin(inputs, 1, *plugin);
+    auto     layer    = addPlugin(network, inputs, 1, plugin);
     assert(layer != nullptr);
     return layer;
 }
@@ -112,7 +156,7 @@ ILayer* addCostVolume(IPluginContainer& plugin_factory, INetworkDefinition& netw
     assert(plugin != nullptr);
     // Add to the network.
     ITensor* inputs[] = {&left_input, &right_input};
-    auto layer = network.addPlugin(inputs, 2, *plugin);
+    auto layer = addPlugin(network, inputs, 2, plugin);
     assert(layer != nullptr);
     return layer;
 }
@@ -131,7 +175,7 @@ ILayer* addConv3D(IPluginContainer& plugin_factory, INetworkDefinition& network,
     assert(plugin != nullptr);
     // Add to the network.
     ITensor* inputs[] = {&input};
-    auto layer = network.addPlugin(inputs, 1, *plugin);
+    auto layer = addPlugin(network, inputs, 1, plugin);
     assert(layer != nullptr);
     return layer;
 }
@@ -150,7 +194,7 @@ ILayer* addConv3DTranspose(IPluginContainer& plugin_factory, INetworkDefinition&
     assert(plugin != nullptr);
     // Add to the network.
     ITensor* inputs[] = {&input};
-    auto layer = network.addPlugin(inputs, 1, *plugin);
+    auto layer = addPlugin(network, inputs, 1, plugin);
     assert(layer != nullptr);
     return layer;
 }
@@ -164,7 +208,7 @@ ILayer* addSlice(IPluginContainer& plugin_factory, INetworkDefinition& network, 
     assert(plugin != nullptr);
     // Add to the network.
     ITensor* inputs[] = {&input};
-    auto     layer    = network.addPlugin(inputs, 1, *plugin);
+    auto     layer    = addPlugin(network, inputs, 1, plugin);
     assert(layer != nullptr);
     return layer;
 }
@@ -178,7 +222,7 @@ ILayer* addTransform(IPluginContainer& plugin_factory, INetworkDefinition& netwo
     assert(plugin != nullptr);
     // Add to the network.
     ITensor* inputs[] = {&input};
-    auto     layer    = network.addPlugin(inputs, 1, *plugin);
+    auto     layer    = addPlugin(network, inputs, 1, plugin);
     assert(layer != nullptr);
     return layer;
 }
@@ -192,7 +236,7 @@ ILayer* addPad(IPluginContainer& plugin_factory, INetworkDefinition& network, IT
     assert(plugin != nullptr);
     // Add to the network.
     ITensor* inputs[] = {&input};
-    auto     layer    = network.addPlugin(inputs, 1, *plugin);
+    auto     layer    = addPlugin(network, inputs, 1, plugin);
     assert(layer != nullptr);
     return layer;
 }
@@ -205,7 +249,7 @@ ILayer* addSoftargmax(IPluginContainer& plugin_factory, INetworkDefinition& netw
     assert(plugin != nullptr);
     // Add to the network.
     ITensor* inputs[] = {&input};
-    auto     layer    = network.addPlugin(inputs, 1, *plugin);
+    auto     layer    = addPlugin(network, inputs, 1, plugin);
     assert(layer != nullptr);
     return layer;
 }

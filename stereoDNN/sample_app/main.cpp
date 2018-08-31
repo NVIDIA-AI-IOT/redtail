@@ -51,7 +51,7 @@ INetworkDefinition* createResNet18_2D_513x257Network(IBuilder& builder, IPluginC
 
 class Logger : public nvinfer1::ILogger
 {
-    public:
+public:
     void log(nvinfer1::ILogger::Severity severity, const char* msg) override
     {
         // Skip info (verbose) messages.
@@ -71,6 +71,37 @@ class Logger : public nvinfer1::ILogger
 };
 
 static Logger gLogger;
+
+class Profiler : public nvinfer1::IProfiler
+{
+public:
+    void printLayerTimes()
+    {
+        float total_time = 0;
+        for (size_t i = 0; i < profile_.size(); i++)
+        {
+            printf("%-60.60s %4.3fms\n", profile_[i].first.c_str(), profile_[i].second);
+            total_time += profile_[i].second;
+        }
+        printf("All layers  : %4.3f\n", total_time);
+    }
+
+protected:
+    void reportLayerTime(const char *layerName, float ms) override
+    {
+        auto record = std::find_if(profile_.begin(), profile_.end(), [&](const Record &r) { return r.first == layerName; });
+        if (record == profile_.end())
+            profile_.push_back(std::make_pair(layerName, ms));
+        else
+            record->second = ms;
+    }
+
+private:
+    using Record = std::pair<std::string, float>;
+    std::vector<Record> profile_;
+};
+
+static Profiler s_profiler;
 
 std::vector<float> readImgFile(const std::string& filename, int w, int h)
 {
@@ -215,7 +246,7 @@ int main(int argc, char** argv)
     else if (model_type == "resnet18_2D")
     {
         if (w == 513)
-            network = createResNet18_2D_513x257Network(*builder, *plugin_factory, DimsCHW { c, h, w }, weights, DataType::kFLOAT, gLogger);
+            network = createResNet18_2D_513x257Network(*builder, *plugin_factory, DimsCHW { c, h, w }, weights, data_type, gLogger);
         else
         {
             printf("ResNet18_2D model supports only 513x257 input image.\n");
@@ -254,6 +285,9 @@ int main(int argc, char** argv)
 
     IExecutionContext *context = engine->createExecutionContext();
 
+    bool use_profiler = true;
+    context->setProfiler(use_profiler ? &s_profiler : nullptr);
+
     std::vector<float> output(h * w);
 
     // Allocate GPU memory and copy data.
@@ -272,6 +306,9 @@ int main(int argc, char** argv)
     UNUSED(err);
     auto host_elapsed_ms = std::chrono::duration<float, std::milli>(host_end - host_start).count();
     printf("Host time: %.4fms\n", host_elapsed_ms);
+
+    if (use_profiler)
+        s_profiler.printLayerTimes();
 
     // Copy output back to host.
     CHECK(cudaMemcpy(output.data(), buffers[out_idx], output.size() * sizeof(float), cudaMemcpyDeviceToHost));

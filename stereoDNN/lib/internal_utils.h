@@ -53,6 +53,20 @@ public:
 };
 
 // -----------------------------------------------------------------
+// String helpers.
+// -----------------------------------------------------------------
+class StrUtils
+{
+public:
+    static std::string toString(DataType type);
+
+    static std::string toString(PluginFormat format);
+
+public:
+    StrUtils(DimsUtils&&) = delete;
+};
+
+// -----------------------------------------------------------------
 // Conversion helpers.
 // -----------------------------------------------------------------
 cudnnDataType_t trtToCudnnDataType(DataType trt_data_type);
