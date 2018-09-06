@@ -134,8 +134,10 @@ __global__ void costVolumeKernel(const T* left, const T* right, int32_t c, int32
 }
 
 template<>
-cudaError_t CudaKernels::computeCostVolume(const float* left, const float* right, Dims in_dims, float* cost_vol, Dims out_dims, cudaStream_t stream)
+cudaError_t CudaKernels::computeCostVolume(DataType data_type, const float* left, const float* right, Dims in_dims, 
+                                           float* cost_vol, Dims out_dims, cudaStream_t stream)
 {
+    assert(data_type == DataType::kFLOAT);
     assert(in_dims.nbDims  == 3);
     assert(out_dims.nbDims == 4);
 
@@ -196,24 +198,31 @@ __global__ void corrCostVolumeKernel(const T* left, const T* right, int32_t c, i
     dst[idst] = val;
 }
 
-
 template<>
-cudaError_t CudaKernels::computeCorrCostVolume(const float* left, const float* right, Dims in_dims, 
+cudaError_t CudaKernels::computeCorrCostVolume(DataType data_type, const float* left, const float* right, Dims in_dims, 
                                                float* cost_vol, Dims out_dims, cudaStream_t stream)
 {
+    assert(data_type == DataType::kFLOAT || data_type == DataType::kHALF);
     assert(in_dims.nbDims  == 3);
     assert(out_dims.nbDims == 3);
 
-    dim3 b_dim{16, 16, 1};
-    dim3 g_dim;
-    g_dim.x = getBlockCount(in_dims.d[2],  b_dim.x);
-    g_dim.y = getBlockCount(in_dims.d[1],  b_dim.y);
-    // Each block handles a particular disparity.
-    g_dim.z = out_dims.d[0];
+    if (data_type == DataType::kFLOAT)
+    {
+        dim3 b_dim{16, 16, 1};
+        dim3 g_dim;
+        g_dim.x = getBlockCount(in_dims.d[2],  b_dim.x);
+        g_dim.y = getBlockCount(in_dims.d[1],  b_dim.y);
+        // Each block handles a particular disparity.
+        g_dim.z = out_dims.d[0];
 
-    corrCostVolumeKernel<<<g_dim, b_dim, 0, stream>>>(left, right, in_dims.d[0], in_dims.d[1], in_dims.d[2], out_dims.d[0],
-                                                      cost_vol);
-    CHECKK(stream);
+        corrCostVolumeKernel<<<g_dim, b_dim, 0, stream>>>(left, right, in_dims.d[0], in_dims.d[1], in_dims.d[2], out_dims.d[0],
+                                                          cost_vol);
+        CHECKK(stream);
+    }
+    else if (data_type == DataType::kHALF)
+    {
+        
+    }
     return cudaSuccess;
 }
 

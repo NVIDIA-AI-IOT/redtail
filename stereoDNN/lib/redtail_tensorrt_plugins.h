@@ -55,7 +55,7 @@ public:
     virtual IPlugin* createEluPlugin(DataType data_type, std::string name) = 0;
 
     // Cost volume plugin.
-    virtual IPlugin* createCostVolumePlugin(CostVolumeType cv_type, int max_disparity,
+    virtual IPlugin* createCostVolumePlugin(DataType data_type, CostVolumeType cv_type, int max_disparity,
                                             std::string name) = 0;
 
     // 3D convolution.
@@ -91,7 +91,7 @@ ILayer* addElu(IPluginContainer& plugin_factory, INetworkDefinition& network, IT
 ILayer* addCostVolume(IPluginContainer& plugin_factory, INetworkDefinition& network,
                       ITensor& left_input, ITensor& right_input, 
                       CostVolumeType cv_type, int max_disparity,
-                      const std::string& name);
+                      DataType data_type, const std::string& name);
 
 ILayer* addConv3D(IPluginContainer& plugin_factory, INetworkDefinition& network, ITensor& input,
                   Conv3DType conv_type, Dims kernel_dims, Dims stride_dims,

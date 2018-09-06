@@ -76,7 +76,7 @@ std::string StrUtils::toString(DataType type)
     case DataType::kINT8:
         return "INT8";
     case DataType::kINT32:
-        return "kINT32";
+        return "INT32";
     default:
         return "Unknown (" + std::to_string((int)type) + ")";
     }
@@ -149,10 +149,10 @@ ILayer* addElu(IPluginContainer& plugin_factory, INetworkDefinition& network, IT
 ILayer* addCostVolume(IPluginContainer& plugin_factory, INetworkDefinition& network,
                       ITensor& left_input, ITensor& right_input, 
                       CostVolumeType cv_type, int max_disparity,
-                      const std::string& name)
+                      DataType data_type, const std::string& name)
 {
     // Create plugin.
-    auto plugin = plugin_factory.createCostVolumePlugin(cv_type, max_disparity, name);
+    auto plugin = plugin_factory.createCostVolumePlugin(data_type, cv_type, max_disparity, name);
     assert(plugin != nullptr);
     // Add to the network.
     ITensor* inputs[] = {&left_input, &right_input};

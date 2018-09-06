@@ -511,7 +511,7 @@ INetworkDefinition* createResNet18_1025x321Network(IBuilder& builder, IPluginCon
 
     // cost_vol cost volume op.
     auto cost_vol = addCostVolume(plugin_factory, *network, *left_encoder2D_out->getOutput(0), *right_encoder2D_out->getOutput(0),
-                             CostVolumeType::kDefault, 68, "cost_vol");
+                             CostVolumeType::kDefault, 68, data_type, "cost_vol");
     assert(cost_vol != nullptr);
 
     // conv3D_1a 3D convolution op.

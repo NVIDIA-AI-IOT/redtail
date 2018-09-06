@@ -599,7 +599,7 @@ INetworkDefinition* createResNet18_2D_513x257Network(IBuilder& builder, IPluginC
 
     // cost_vol cost volume op.
     auto cost_vol = addCostVolume(plugin_factory, *network, *left_encoder2D_out->getOutput(0), *right_encoder2D_out->getOutput(0),
-                             CostVolumeType::kCorrelation, 48, "cost_vol");
+                             CostVolumeType::kCorrelation, 48, data_type, "cost_vol");
     assert(cost_vol != nullptr);
     cost_vol->setName("cost_vol");
 

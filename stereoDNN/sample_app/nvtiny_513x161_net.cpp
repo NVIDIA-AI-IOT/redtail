@@ -146,7 +146,7 @@ INetworkDefinition* createNVTiny513x161Network(IBuilder& builder, IPluginContain
 
     // cost_vol cost volume op.
     auto cost_vol = addCostVolume(plugin_factory, *network, *left_conv5->getOutput(0), *right_conv5->getOutput(0),
-                             CostVolumeType::kDefault, 24, "cost_vol");
+                             CostVolumeType::kDefault, 24, data_type, "cost_vol");
     assert(cost_vol != nullptr);
 
     // conv3D_1 3D convolution op.

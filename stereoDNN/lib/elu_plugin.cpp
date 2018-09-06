@@ -16,15 +16,17 @@ class EluPlugin: public IPluginExt
 {
 public:
     EluPlugin(DataType data_type, ILogger& log, std::string name):
-        data_type_(data_type), format_(PluginFormat::kNCHW), max_batch_size_(0), log_(log), name_(name)
+        data_type_(data_type), format_(PluginFormat::kNCHW), 
+        max_batch_size_(0), log_(log), name_(name)
     {
+        assert(data_type_ == DataType::kFLOAT || data_type_ == DataType::kHALF);
     }
 
     EluPlugin(EluPlugin&&) = delete;
 
     bool supportsFormat(DataType type, PluginFormat format) const override
     {
-        // On TX2, the most efficient format is kNC2HW2. Using other formats will make
+        // On TX2, the most efficient format in FP16 is kNC2HW2. Using other formats will make
         // TRT to insert reformat layers which hurts performance.
         bool supported_formats = (format == PluginFormat::kNCHW || format == PluginFormat::kNC2HW2);
         // REVIEW alexeyk: by using data type provided in ctor we effectively disabling

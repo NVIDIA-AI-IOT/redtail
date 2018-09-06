@@ -477,7 +477,7 @@ assert({1} != nullptr);
         code = """\
 // {2} cost volume op.
 auto {2} = addCostVolume(plugin_factory, *network, *{0}->getOutput(0), *{1}->getOutput(0),
-                         {3}, {4}, "{2}");
+                         {3}, {4}, data_type, "{2}");
 assert({2} != nullptr);
 {2}->setName("{2}");
 

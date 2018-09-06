@@ -78,10 +78,12 @@ class CudaKernels
 {
 public:
     template<typename T>
-    static cudaError_t computeCostVolume(const T* left, const T* right, Dims in_dims, T* cost_vol, Dims out_dims, cudaStream_t stream);
+    static cudaError_t computeCostVolume(DataType data_type, const T* left, const T* right, Dims in_dims, T* cost_vol, Dims out_dims,
+                                         cudaStream_t stream);
 
     template<typename T>
-    static cudaError_t computeCorrCostVolume(const T* left, const T* right, Dims in_dims, T* cost_vol, Dims out_dims, cudaStream_t stream);
+    static cudaError_t computeCorrCostVolume(DataType data_type, const T* left, const T* right, Dims in_dims, T* cost_vol, Dims out_dims,
+                                             cudaStream_t stream);
 
     template<typename T>
     static cudaError_t addDBiasTo3DConv(const T* bias, Dims bias_dims, T* conv, Dims conv_dims, cudaStream_t stream);
@@ -95,7 +97,11 @@ public:
 
 // Template instantiation.
 template<>
-cudaError_t CudaKernels::computeCostVolume(const float*, const float*, Dims, float*, Dims, cudaStream_t);
+cudaError_t CudaKernels::computeCostVolume(DataType data_type, const float*, const float*, Dims, float*, Dims, cudaStream_t);
+
+template<>
+cudaError_t CudaKernels::computeCorrCostVolume(DataType data_type, const float* left, const float* right, Dims in_dims, 
+                                               float* cost_vol, Dims out_dims, cudaStream_t stream);
 
 template<>
 cudaError_t CudaKernels::addDBiasTo3DConv(const float*, Dims, float*, Dims, cudaStream_t);
@@ -121,7 +127,7 @@ public:
     IPlugin* createEluPlugin(DataType data_type, std::string name) override;
 
     // Cost volume plugin.
-    IPlugin* createCostVolumePlugin(CostVolumeType cv_type, int max_disparity,
+    IPlugin* createCostVolumePlugin(DataType data_type, CostVolumeType cv_type, int max_disparity,
                                     std::string name) override;
 
     // 3D convolution.

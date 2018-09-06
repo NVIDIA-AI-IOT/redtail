@@ -146,7 +146,7 @@ INetworkDefinition* createNVSmall1025x321Network(IBuilder& builder, IPluginConta
 
     // cost_vol cost volume op.
     auto cost_vol = addCostVolume(plugin_factory, *network, *left_conv5->getOutput(0), *right_conv5->getOutput(0),
-                             CostVolumeType::kDefault, 48, "cost_vol");
+                             CostVolumeType::kDefault, 48, data_type, "cost_vol");
     assert(cost_vol != nullptr);
 
     // conv3D_1 3D convolution op.
