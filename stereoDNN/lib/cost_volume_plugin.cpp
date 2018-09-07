@@ -31,8 +31,8 @@ public:
     {
         // See EluPlugin::supportsFormat for the notes.
         // Other combinations are not currently implemented.
-        bool supported_formats = (type == DataType::kFLOAT && format == PluginFormat::kNCHW) ||
-                                 (type == DataType::kHALF  && format == PluginFormat::kNCHW) || // REVIEW alexeyk: only for testing on the host.
+        bool supported_formats = (type == DataType::kFLOAT && format == PluginFormat::kNCHW)  ||
+                                 (type == DataType::kHALF  && format == PluginFormat::kNCHW)  || // REVIEW alexeyk: only for testing on the host.
                                  (type == DataType::kHALF  && format == PluginFormat::kNC2HW2);
         return (type == data_type_) && supported_formats;
     }

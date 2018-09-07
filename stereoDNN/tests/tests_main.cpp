@@ -995,7 +995,7 @@ TEST(CorrCostVolumePluginTests, BasicFP16NC2HW2)
 
     ASSERT_EQ(cost_vol.size(), actual.size());
     for (size_t i = 0; i < actual.size(); i++)
-         EXPECT_NEAR(cost_vol[i], actual[i], 0.000001) << "Vectors 'actual' and 'cost_vol' differ at index " << i;
+        EXPECT_NEAR(cost_vol[i], actual[i], 0.01) << "Vectors 'actual' and 'cost_vol' differ at index " << i;
 }
 
 // -----------------------------------------------------------------
