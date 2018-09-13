@@ -2,7 +2,9 @@
 // Copyright (c) 2018, NVIDIA CORPORATION. All rights reserved.
 // Full license terms provided in LICENSE.md file.
 
-#pragma once
+#ifndef NETWORKS_H
+#define NETWORKS_H
+
 #include <NvInfer.h>
 #include <string>
 #include <unordered_map>
@@ -34,3 +36,5 @@ INetworkDefinition* createResNet18_1025x321Network(IBuilder& builder, IPluginCon
 INetworkDefinition* createResNet18_2D_513x257Network(IBuilder& builder, IPluginContainer& plugin_factory,
                                                      DimsCHW img_dims, const weight_map& weights, DataType data_type, ILogger& log);
 }}
+
+#endif
