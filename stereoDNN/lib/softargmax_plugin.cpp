@@ -3,6 +3,7 @@
 
 #include "internal_utils.h"
 #include <cassert>
+#include <cstring>
 #include <numeric>
 
 namespace redtail { namespace tensorrt
@@ -162,11 +163,20 @@ public:
 
     size_t getSerializationSize() override
     {
-        return 0;
+        // PluginType, DataType, SoftargmaxType.
+        return sizeof(int32_t) + sizeof(data_type_) + sizeof(SoftargmaxType);
     }
 
     void serialize(void* buffer) override
     {
+        assert(buffer != nullptr);
+        //assert(isValid());
+
+        auto ptr = (uint8_t*)buffer;
+        int32_t plugin_type = (int32_t)StereoDnnPluginFactory::PluginType::kSoftargmax;
+        std::memcpy(ptr, &plugin_type, sizeof(plugin_type));
+        ptr += sizeof(plugin_type);
+        std::memcpy(ptr, &data_type_, sizeof(data_type_));
     }
 
 private:

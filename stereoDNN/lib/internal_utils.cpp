@@ -127,7 +127,7 @@ std::unique_ptr<IPluginContainer> IPluginContainer::create(ILogger& log)
 IPluginLayer* addPlugin(INetworkDefinition& network, ITensor* const* inputs, int num_inputs, IPlugin* plugin)
 {
     auto plugin_ext   = dynamic_cast<IPluginExt*>(plugin);
-    auto plugin_layer = plugin_ext != nullptr 
+    auto plugin_layer = plugin_ext != nullptr
                         ? network.addPluginExt(inputs, num_inputs, *plugin_ext)
                         : network.addPlugin(inputs, num_inputs, *plugin);
     return plugin_layer;
@@ -147,7 +147,7 @@ ILayer* addElu(IPluginContainer& plugin_factory, INetworkDefinition& network, IT
 }
 
 ILayer* addCostVolume(IPluginContainer& plugin_factory, INetworkDefinition& network,
-                      ITensor& left_input, ITensor& right_input, 
+                      ITensor& left_input, ITensor& right_input,
                       CostVolumeType cv_type, int max_disparity,
                       DataType data_type, const std::string& name)
 {
@@ -276,6 +276,50 @@ void reportError(cudnnStatus_t status, const char* file, int line, const char* f
     str << file << ":" << line << ": " << func << ": cuDNN error " << status << " (" << cudnnGetErrorString(status) << ").";
     log.log(ILogger::Severity::kERROR, str.str().c_str());
     assert(status == CUDNN_STATUS_SUCCESS);
+}
+
+// -----------------------------------------------------------------
+// Plugin factory used in (de)serialization.
+// -----------------------------------------------------------------
+StereoDnnPluginFactory::StereoDnnPluginFactory(IPluginContainer& container):
+    container_(container)
+{
+}
+
+IPlugin* StereoDnnPluginFactory::createPlugin(const char* layerName, const void* serialData, size_t serialLength)
+{
+    printf("!!! %s, %d, %d \n", layerName, *(int*)serialData, (int)serialLength);
+    assert(serialLength >= sizeof(int32_t));
+    size_t bytes_read = 0;
+    auto ptr          = (const uint8_t*)serialData;
+    auto plugin_type  = (PluginType)*(int32_t*)ptr;
+    bytes_read += sizeof(int32_t);
+
+    IPlugin* plugin = nullptr;
+    switch (plugin_type)
+    {
+    case PluginType::kElu:
+        {
+            auto data_type = *(DataType*)&ptr[bytes_read];
+            bytes_read    += sizeof(DataType);
+            plugin = container_.createEluPlugin(data_type, layerName);
+        }
+        break;
+    case PluginType::kCostVolume:
+        {
+            auto data_type = *(DataType*)&ptr[bytes_read];
+            bytes_read    += sizeof(DataType);
+            auto cv_type   = *(CostVolumeType*)&ptr[bytes_read];
+            bytes_read    += sizeof(CostVolumeType);
+            auto max_disp  = *(int*)&ptr[bytes_read];
+            bytes_read    += sizeof(int);
+            plugin = container_.createCostVolumePlugin(data_type, cv_type, max_disp, layerName);
+        }
+        break;
+    }
+
+    assert(bytes_read == serialLength);
+    return plugin;
 }
 
 } }

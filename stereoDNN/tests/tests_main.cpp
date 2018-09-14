@@ -19,6 +19,21 @@ using namespace redtail::tensorrt;
 
 using FloatVec = std::vector<float>;
 
+namespace testing
+{
+ namespace internal
+ {
+  enum GTestColor {
+      COLOR_DEFAULT,
+      COLOR_RED,
+      COLOR_GREEN,
+      COLOR_YELLOW
+  };
+
+  extern void ColoredPrintf(GTestColor color, const char* fmt, ...);
+ }
+}
+
 // -----------------------------------------------------------------
 // TensorRT logger.
 // -----------------------------------------------------------------
@@ -972,6 +987,18 @@ TEST(CorrCostVolumePluginTests, Basic)
 
 TEST(CorrCostVolumePluginTests, BasicFP16NC2HW2)
 {
+    // REVIEW alexeyk: TRT 4.0 fails with assert when using FP16/NC2HW2 combination on platforms
+    // with no native FP16 support. Should be fixed in the future release of TRT.
+    auto builder  = createInferBuilder(*g_logger);
+    bool has_fp16 = builder->platformHasFastFp16();
+    builder->destroy();
+    if (!has_fp16)
+    {
+        testing::internal::ColoredPrintf(testing::internal::COLOR_YELLOW,
+                                         "[**********] Current platofrm does not have native FP16 support, so the test will be skipped.\n");
+        return;
+    }
+
     Dims left_dims;
     Dims right_dims;
     Dims cost_vol_dims;

@@ -89,7 +89,7 @@ ILayer* addElu(IPluginContainer& plugin_factory, INetworkDefinition& network, IT
                DataType data_type, const std::string& name);
 
 ILayer* addCostVolume(IPluginContainer& plugin_factory, INetworkDefinition& network,
-                      ITensor& left_input, ITensor& right_input, 
+                      ITensor& left_input, ITensor& right_input,
                       CostVolumeType cv_type, int max_disparity,
                       DataType data_type, const std::string& name);
 
@@ -119,6 +119,28 @@ ILayer* addPad(IPluginContainer& plugin_factory, INetworkDefinition& network, IT
 
 ILayer* addSoftargmax(IPluginContainer& plugin_factory, INetworkDefinition& network, ITensor& input,
                       SoftargmaxType sm_type, const std::string& name);
+
+// -----------------------------------------------------------------
+// Plugin factory used in (de)serialization.
+// -----------------------------------------------------------------
+class StereoDnnPluginFactory: public IPluginFactory
+{
+public:
+    enum class PluginType
+    {
+        kElu        = 0,
+        kCostVolume = 1,
+        kSoftargmax = 2
+    };
+
+public:
+    StereoDnnPluginFactory(IPluginContainer& container);
+
+    IPlugin* createPlugin(const char* layerName, const void* serialData, size_t serialLength) override;
+
+private:
+    IPluginContainer& container_;
+};
 
 } }
 

@@ -197,23 +197,23 @@ int main(int argc, char** argv)
     // Create builder and network.
     IBuilder* builder = createInferBuilder(gLogger);
 
-    // Note: the plugin_factory object lifetime must be at least the same as engine.
-    auto plugin_factory = IPluginContainer::create(gLogger);
+    // Note: the plugin_container object lifetime must be at least the same as engine.
+    auto plugin_container = IPluginContainer::create(gLogger);
     // TRT v3 supports FP16 only for the weights (e.g. convolutions) but not the data so use float data type.
     INetworkDefinition* network = nullptr;
     if (model_type == "nvsmall")
     {
         if (w == 1025)
-            network = createNVSmall1025x321Network(*builder, *plugin_factory, DimsCHW { c, h, w }, weights, DataType::kFLOAT, gLogger);
+            network = createNVSmall1025x321Network(*builder, *plugin_container, DimsCHW { c, h, w }, weights, DataType::kFLOAT, gLogger);
         else if (w == 513)
-            network = createNVTiny513x161Network(  *builder, *plugin_factory, DimsCHW { c, h, w }, weights, DataType::kFLOAT, gLogger);
+            network = createNVTiny513x161Network(  *builder, *plugin_container, DimsCHW { c, h, w }, weights, DataType::kFLOAT, gLogger);
         else
             assert(false);
     }
     else if (model_type == "resnet18")
     {
         if (w == 1025)
-            network = createResNet18_1025x321Network(*builder, *plugin_factory, DimsCHW { c, h, w }, weights, DataType::kFLOAT, gLogger);
+            network = createResNet18_1025x321Network(*builder, *plugin_container, DimsCHW { c, h, w }, weights, DataType::kFLOAT, gLogger);
         else
         {
             printf("ResNet-18 model supports only 1025x321 input image.\n");
@@ -223,7 +223,7 @@ int main(int argc, char** argv)
     else if (model_type == "resnet18_2D")
     {
         if (w == 513)
-            network = createResNet18_2D_513x257Network(*builder, *plugin_factory, DimsCHW { c, h, w }, weights, data_type, gLogger);
+            network = createResNet18_2D_513x257Network(*builder, *plugin_container, DimsCHW { c, h, w }, weights, data_type, gLogger);
         else
         {
             printf("ResNet18_2D model supports only 513x257 input image.\n");
@@ -243,13 +243,15 @@ int main(int argc, char** argv)
     network->destroy();
 
     // REVIEW alexeyk: serialization is not yet supported. Need to implement IPluginFactory properly.
-    // IHostMemory *model_stream = engine->serialize();
-    // engine->destroy();
-    // builder->destroy();
+    IHostMemory *model_stream = engine->serialize();
+    engine->destroy();
+    builder->destroy();
 
-    // IRuntime* runtime = createInferRuntime(gLogger);
-    // engine = runtime->deserializeCudaEngine(model_stream->data(), model_stream->size(), nullptr);
-    // model_stream->destroy();
+    printf("!! StereoDnnPluginFactory\n");
+    StereoDnnPluginFactory factory(*plugin_container);
+    IRuntime* runtime = createInferRuntime(gLogger);
+    engine = runtime->deserializeCudaEngine(model_stream->data(), model_stream->size(), &factory);
+    model_stream->destroy();
 
     assert(engine->getNbBindings() == 3);
     void* buffers[3];
