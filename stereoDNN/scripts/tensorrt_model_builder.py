@@ -24,7 +24,7 @@ with warnings.catch_warnings():
 from data_converters import *
 
 class TrtModelBuilder(object):
-    def __init__(self, model, net_name, code_writer, weights_writer, data_type):
+    def __init__(self, model, net_name, code_writer, weights_writer, data_type, act='elu'):
         self.default_indent = 4
         self.cur_indent     = 0
         self.max_line_width = 160
@@ -36,6 +36,8 @@ class TrtModelBuilder(object):
         self.code_writer    = code_writer
         self.weights_writer = weights_writer
         self.data_type      = data_type
+        self.act            = act
+        self.has_srelu_weights = False  
 
     def _indent_lines(self, src):
         src = src.split('\n')
@@ -446,6 +448,14 @@ assert({0}_slice_layer != nullptr);
         self._write_weights(name + '_b', bias_weights)
         return out_name
 
+    def write_act(self, input, name):
+        if self.act == 'elu':
+            return self.write_elu(input, name)
+        elif self.act == 'srelu':
+            return self.write_srelu(input, name)
+        else:
+            assert False, 'Not supported activation: {}'.format(self.act)
+
     def write_elu(self, input, name):
         # Write code.
         code = """\
@@ -457,6 +467,40 @@ assert({1} != nullptr);
 """
         code = code.format(input, name)
         self.code_writer.write(self._indent_lines(code))
+        return name
+
+    def write_srelu(self, input, name):
+        # Write code.
+        code = """\
+// {1} SReLU activation op.
+auto {1}_shift_up = network->addScale(*{0}->getOutput(0), ScaleMode::kUNIFORM,
+                                      weights.at("srelu_shift_up"), weights.at("srelu_shift_scale"), weights.at("srelu_shift_power"));
+
+assert({1}_shift_up != nullptr);
+{1}_shift_up->setName("{1}_shift_up");
+
+auto {1}_relu = network->addActivation(*{1}_shift_up->getOutput(0), ActivationType::kRELU);
+//auto {1}_relu = network->addActivation(*{0}->getOutput(0), ActivationType::kRELU);
+assert({1}_relu != nullptr);
+{1}_relu->setName("{1}_relu");
+
+//auto {1} = {1}_relu;
+auto {1} = network->addScale(*{1}_relu->getOutput(0), ScaleMode::kUNIFORM,
+                             weights.at("srelu_shift_down"), weights.at("srelu_shift_scale"), weights.at("srelu_shift_power"));
+assert({1} != nullptr);
+{1}->setName("{1}");
+
+"""
+        code = code.format(input, name)
+        self.code_writer.write(self._indent_lines(code))
+        # Write SReLU biases only once.
+        if not self.has_srelu_weights:
+            self._write_weights('srelu_shift_up',    [1.0])
+            self._write_weights('srelu_shift_down',  [-1.0])
+            self._write_weights('srelu_shift_scale', [1.0])
+            self._write_weights('srelu_shift_power', [1.0])
+            self.has_srelu_weights = True
+
         return name
 
     def write_sigmoid(self, input, name):
