@@ -1042,7 +1042,7 @@ TEST(SoftargmaxPluginTests, ArgMinBasic)
     auto actual  = runPlugin(1, {{"x", x_dims, x}}, y_dims,
                              [&]
                              {
-                                 return factory->createSoftargmaxPlugin(SoftargmaxType::kMin, "Softargmax");
+                                 return factory->createSoftargmaxPlugin(DataType::kFLOAT, SoftargmaxType::kMin, "Softargmax");
                              },
                              [] (INetworkDefinition*, ILayer* plugin, IPluginContainer&) { return plugin; },
                              *factory);
@@ -1065,7 +1065,7 @@ TEST(SoftargmaxPluginTests, ArgMinBatchSize2)
     auto actual  = runPlugin(2, {{"x", x_dims, x}}, y_dims,
                              [&]
                              {
-                                 return factory->createSoftargmaxPlugin(SoftargmaxType::kMin, "Softargmax");
+                                 return factory->createSoftargmaxPlugin(DataType::kFLOAT, SoftargmaxType::kMin, "Softargmax");
                              },
                              [] (INetworkDefinition*, ILayer* plugin, IPluginContainer&) { return plugin; },
                              *factory);
@@ -1088,7 +1088,7 @@ TEST(SoftargmaxPluginTests, ArgMaxBasic)
     auto actual  = runPlugin(1, {{"x", x_dims, x}}, y_dims,
                              [&]
                              {
-                                 return factory->createSoftargmaxPlugin(SoftargmaxType::kMax, "Softargmax");
+                                 return factory->createSoftargmaxPlugin(DataType::kFLOAT, SoftargmaxType::kMax, "Softargmax");
                              },
                              [] (INetworkDefinition*, ILayer* plugin, IPluginContainer&) { return plugin; },
                              *factory);

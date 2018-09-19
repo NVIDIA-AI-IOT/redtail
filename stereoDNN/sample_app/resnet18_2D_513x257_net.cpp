@@ -604,7 +604,7 @@ INetworkDefinition* createResNet18_2D_513x257Network(IBuilder& builder, IPluginC
     cost_vol->setName("cost_vol");
 
     // Softargmax.
-    auto softargmax = addSoftargmax(plugin_factory, *network, *cost_vol->getOutput(0), SoftargmaxType::kMax, "softargmax_softargmax");
+    auto softargmax = addSoftargmax(plugin_factory, *network, *cost_vol->getOutput(0), SoftargmaxType::kMax, data_type, "softargmax_softargmax");
     assert(softargmax != nullptr);
     softargmax->setName("softargmax");
 

@@ -177,7 +177,8 @@ int main(int argc, char** argv)
 
     // Read weights.
     // Note: the weights object lifetime must be at least the same as engine.
-    auto weights = readWeights(argv[4], data_type);
+    std::string weights_file(argv[4]);
+    auto weights = readWeights(weights_file, data_type);
     printf("Loaded %zu weight sets.\n", weights.size());
 
     //const int b = 1;
@@ -194,64 +195,85 @@ int main(int argc, char** argv)
     //auto img_right = readBinFile(argv[6]);
     assert(img_right.size() == (size_t)c * h * w);
 
-    // Create builder and network.
-    IBuilder* builder = createInferBuilder(gLogger);
+    // TensorRT pre-built plan file.
+    auto trt_plan_file = weights_file + ".plan";
+    std::ifstream trt_plan(trt_plan_file, std::ios::binary);
 
-    // Note: the plugin_container object lifetime must be at least the same as engine.
+    // Note: the plugin_container object lifetime must be at least the same as the engine.
     auto plugin_container = IPluginContainer::create(gLogger);
-    // TRT v3 supports FP16 only for the weights (e.g. convolutions) but not the data so use float data type.
-    INetworkDefinition* network = nullptr;
-    if (model_type == "nvsmall")
+    ICudaEngine* engine   = nullptr;
+    // Check if we can load pre-built model from TRT plan file.
+    // Currently only ResNet18_2D supports serialization.
+    if (model_type == "resnet18_2D" && trt_plan.good())
     {
-        if (w == 1025)
-            network = createNVSmall1025x321Network(*builder, *plugin_container, DimsCHW { c, h, w }, weights, DataType::kFLOAT, gLogger);
-        else if (w == 513)
-            network = createNVTiny513x161Network(  *builder, *plugin_container, DimsCHW { c, h, w }, weights, DataType::kFLOAT, gLogger);
-        else
-            assert(false);
-    }
-    else if (model_type == "resnet18")
-    {
-        if (w == 1025)
-            network = createResNet18_1025x321Network(*builder, *plugin_container, DimsCHW { c, h, w }, weights, DataType::kFLOAT, gLogger);
-        else
-        {
-            printf("ResNet-18 model supports only 1025x321 input image.\n");
-            exit(1);
-        }
-    }
-    else if (model_type == "resnet18_2D")
-    {
-        if (w == 513)
-            network = createResNet18_2D_513x257Network(*builder, *plugin_container, DimsCHW { c, h, w }, weights, data_type, gLogger);
-        else
-        {
-            printf("ResNet18_2D model supports only 513x257 input image.\n");
-            exit(1);
-        }
+        printf("Loading TensorRT plan from %s...\n", trt_plan_file.c_str());
+        // StereoDnnPluginFactory object is stateless as it adds plugins to corresponding container.
+        StereoDnnPluginFactory factory(*plugin_container);
+        IRuntime* runtime = createInferRuntime(gLogger);
+        // Load the plan.
+        std::stringstream model;
+        model << trt_plan.rdbuf();
+        model.seekg(0, model.beg);
+        const auto& model_final = model.str();
+        // Deserialize model.
+        engine = runtime->deserializeCudaEngine(model_final.c_str(), model_final.size(), &factory);
     }
     else
-        assert(false);
+    {
+        // Create builder and network.
+        IBuilder* builder = createInferBuilder(gLogger);
 
-    builder->setMaxBatchSize(1);
-    size_t workspace_bytes = 1024 * 1024 * 1024;
-    builder->setMaxWorkspaceSize(workspace_bytes);
+        // TRT v3 supports FP16 only for the weights (e.g. convolutions) but not the data so use float data type.
+        INetworkDefinition* network = nullptr;
+        if (model_type == "nvsmall")
+        {
+            if (w == 1025)
+                network = createNVSmall1025x321Network(*builder, *plugin_container, DimsCHW { c, h, w }, weights, DataType::kFLOAT, gLogger);
+            else if (w == 513)
+                network = createNVTiny513x161Network(  *builder, *plugin_container, DimsCHW { c, h, w }, weights, DataType::kFLOAT, gLogger);
+            else
+                assert(false);
+        }
+        else if (model_type == "resnet18")
+        {
+            if (w == 1025)
+                network = createResNet18_1025x321Network(*builder, *plugin_container, DimsCHW { c, h, w }, weights, DataType::kFLOAT, gLogger);
+            else
+            {
+                printf("ResNet-18 model supports only 1025x321 input image.\n");
+                exit(1);
+            }
+        }
+        else if (model_type == "resnet18_2D")
+        {
+            if (w == 513)
+                network = createResNet18_2D_513x257Network(*builder, *plugin_container, DimsCHW { c, h, w }, weights, data_type, gLogger);
+            else
+            {
+                printf("ResNet18_2D model supports only 513x257 input image.\n");
+                exit(1);
+            }
+        }
+        else
+            assert(false);
 
-    builder->setHalf2Mode(data_type == DataType::kHALF);
-    // Build the network.
-    auto engine = builder->buildCudaEngine(*network);
-    network->destroy();
+        builder->setMaxBatchSize(1);
+        size_t workspace_bytes = 1024 * 1024 * 1024;
+        builder->setMaxWorkspaceSize(workspace_bytes);
 
-    // REVIEW alexeyk: serialization is not yet supported. Need to implement IPluginFactory properly.
-    IHostMemory *model_stream = engine->serialize();
-    engine->destroy();
-    builder->destroy();
+        builder->setHalf2Mode(data_type == DataType::kHALF);
+        // Build the network.
+        engine = builder->buildCudaEngine(*network);
+        network->destroy();
 
-    printf("!! StereoDnnPluginFactory\n");
-    StereoDnnPluginFactory factory(*plugin_container);
-    IRuntime* runtime = createInferRuntime(gLogger);
-    engine = runtime->deserializeCudaEngine(model_stream->data(), model_stream->size(), &factory);
-    model_stream->destroy();
+        if (model_type == "resnet18_2D")
+        {
+            printf("Saving TensorRT plan to %s...\n", trt_plan_file.c_str());
+            IHostMemory *model_stream = engine->serialize();
+            std::ofstream trt_plan_out(trt_plan_file, std::ios::binary);
+            trt_plan_out.write((const char*)model_stream->data(), model_stream->size());
+        }
+    }
 
     assert(engine->getNbBindings() == 3);
     void* buffers[3];

@@ -868,7 +868,7 @@ INetworkDefinition* createResNet18_1025x321Network(IBuilder& builder, IPluginCon
     assert(deconv3D_5_slice_layer != nullptr);
 
     // Softargmax.
-    auto disp = addSoftargmax(plugin_factory, *network, *deconv3D_5_slice_layer->getOutput(0), SoftargmaxType::kMin, "disp_softargmax");
+    auto disp = addSoftargmax(plugin_factory, *network, *deconv3D_5_slice_layer->getOutput(0), SoftargmaxType::kMin, data_type, "disp_softargmax");
     assert(disp != nullptr);
 
     auto disp_out = disp->getOutput(0);

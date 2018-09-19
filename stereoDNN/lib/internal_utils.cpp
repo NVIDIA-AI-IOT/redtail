@@ -242,10 +242,10 @@ ILayer* addPad(IPluginContainer& plugin_factory, INetworkDefinition& network, IT
 }
 
 ILayer* addSoftargmax(IPluginContainer& plugin_factory, INetworkDefinition& network, ITensor& input,
-                      SoftargmaxType sm_type, const std::string& name)
+                      SoftargmaxType sm_type, DataType data_type, const std::string& name)
 {
     // Create plugin.
-    auto plugin = plugin_factory.createSoftargmaxPlugin(sm_type, name);
+    auto plugin = plugin_factory.createSoftargmaxPlugin(data_type, sm_type, name);
     assert(plugin != nullptr);
     // Add to the network.
     ITensor* inputs[] = {&input};
@@ -288,37 +288,27 @@ StereoDnnPluginFactory::StereoDnnPluginFactory(IPluginContainer& container):
 
 IPlugin* StereoDnnPluginFactory::createPlugin(const char* layerName, const void* serialData, size_t serialLength)
 {
-    printf("!!! %s, %d, %d \n", layerName, *(int*)serialData, (int)serialLength);
     assert(serialLength >= sizeof(int32_t));
     size_t bytes_read = 0;
     auto ptr          = (const uint8_t*)serialData;
     auto plugin_type  = (PluginType)*(int32_t*)ptr;
     bytes_read += sizeof(int32_t);
+    ptr += bytes_read;
 
     IPlugin* plugin = nullptr;
     switch (plugin_type)
     {
     case PluginType::kElu:
-        {
-            auto data_type = *(DataType*)&ptr[bytes_read];
-            bytes_read    += sizeof(DataType);
-            plugin = container_.createEluPlugin(data_type, layerName);
-        }
+            plugin = container_.deserializeEluPlugin(layerName, ptr, serialLength - bytes_read);
         break;
     case PluginType::kCostVolume:
-        {
-            auto data_type = *(DataType*)&ptr[bytes_read];
-            bytes_read    += sizeof(DataType);
-            auto cv_type   = *(CostVolumeType*)&ptr[bytes_read];
-            bytes_read    += sizeof(CostVolumeType);
-            auto max_disp  = *(int*)&ptr[bytes_read];
-            bytes_read    += sizeof(int);
-            plugin = container_.createCostVolumePlugin(data_type, cv_type, max_disp, layerName);
-        }
+            plugin = container_.deserializeCostVolumePlugin(layerName, ptr, serialLength - bytes_read);
+        break;
+    case PluginType::kSoftargmax:
+            plugin = container_.deserializeSoftargmaxPlugin(layerName, ptr, serialLength - bytes_read);
         break;
     }
 
-    assert(bytes_read == serialLength);
     return plugin;
 }
 

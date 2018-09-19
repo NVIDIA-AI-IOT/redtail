@@ -578,7 +578,7 @@ assert({2} != nullptr);
     def write_softargmax(self, input, name, is_argmin):
         code = """\
 // Softargmax.
-auto {1} = addSoftargmax(plugin_factory, *network, *{0}->getOutput(0), {2}, "{1}_softargmax");
+auto {1} = addSoftargmax(plugin_factory, *network, *{0}->getOutput(0), {2}, data_type, "{1}_softargmax");
 assert({1} != nullptr);
 {1}->setName("{1}");
 

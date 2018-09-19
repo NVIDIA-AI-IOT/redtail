@@ -6,6 +6,7 @@
 
 #include <cassert>
 #include <mutex>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -125,10 +126,12 @@ public:
 
     // ELU plugin.
     IPlugin* createEluPlugin(DataType data_type, std::string name) override;
+    IPlugin* deserializeEluPlugin(const char* name, const void* data, size_t size) override;
 
     // Cost volume plugin.
     IPlugin* createCostVolumePlugin(DataType data_type, CostVolumeType cv_type, int max_disparity,
                                     std::string name) override;
+    IPlugin* deserializeCostVolumePlugin(const char* name, const void* data, size_t size) override;
 
     // 3D convolution.
     IPlugin* createConv3DPlugin(Conv3DType conv_type, Dims kernel_dims,
@@ -152,7 +155,8 @@ public:
     IPlugin* createSlicePlugin(Dims dims, Dims slice_start, Dims slice_end,
                                std::string name) override;
 
-    IPlugin* createSoftargmaxPlugin(SoftargmaxType sm_type, std::string name) override;
+    IPlugin* createSoftargmaxPlugin(DataType data_type, SoftargmaxType sm_type, std::string name) override;
+    IPlugin* deserializeSoftargmaxPlugin(const char* name, const void* data, size_t size) override;
 
 private:
     // TensorRT IPlugin interface has protected dtor so cannot use unique_ptr
@@ -165,6 +169,21 @@ private:
 
 void reportError(cudaError_t status, const char* file, int line, const char* func, ILogger& log);
 void reportError(cudnnStatus_t status, const char* file, int line, const char* func, ILogger& log);
+
+template<typename S, typename T=S>
+void write_stream(S val, std::ostringstream& ss)
+{
+    auto dst = (T)val;
+    ss.write((const char*)&dst, sizeof(dst));
+}
+
+template<typename T>
+T read_stream(std::istringstream& ss)
+{
+    T res;
+    ss.read((char *)&res, sizeof(res));
+    return res;
+}
 
 } }
 

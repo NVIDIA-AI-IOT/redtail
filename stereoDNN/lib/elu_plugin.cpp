@@ -17,10 +17,27 @@ class EluPlugin: public IPluginExt
 {
 public:
     EluPlugin(DataType data_type, ILogger& log, std::string name):
-        data_type_(data_type), format_(PluginFormat::kNCHW), 
+        data_type_(data_type), format_(PluginFormat::kNCHW),
         max_batch_size_(0), log_(log), name_(name)
     {
         assert(data_type_ == DataType::kFLOAT || data_type_ == DataType::kHALF);
+    }
+
+    // Deserialization ctor.
+    EluPlugin(const char* name, const void* data, size_t size, ILogger& log):
+        max_batch_size_(1), log_(log), name_(name)
+    {
+        // REVIEW alexeyk: add asserts.
+        std::istringstream ss(std::string((const char*)data, size));
+        // Note: starting with data_type_ as plugin type was already processed by the factory.
+        data_type_ = read_stream<DataType>(ss);
+        format_    = read_stream<PluginFormat>(ss);
+        in_dims_.nbDims = read_stream<int>(ss);
+        for (int i = 0; i < in_dims_.nbDims; i++)
+            in_dims_.d[i] = read_stream<int>(ss);
+
+        // Check that nothing is left in the stream.
+        assert((ss >> std::ws).eof());
     }
 
     EluPlugin(EluPlugin&&) = delete;
@@ -120,8 +137,7 @@ public:
     size_t getSerializationSize() override
     {
         assert(isValid());
-        // PluginType, DataType.
-        return sizeof(int32_t) + sizeof(data_type_);
+        return serialize().size();
     }
 
     void serialize(void* buffer) override
@@ -129,14 +145,16 @@ public:
         assert(buffer != nullptr);
         assert(isValid());
 
-        auto ptr = (uint8_t*)buffer;
-        int32_t plugin_type = (int32_t)StereoDnnPluginFactory::PluginType::kElu;
-        std::memcpy(ptr, &plugin_type, sizeof(plugin_type));
-        ptr += sizeof(plugin_type);
-        std::memcpy(ptr, &data_type_, sizeof(data_type_));
+        auto data = serialize();
+        std::memcpy(buffer, data.c_str(), data.size());
     }
 
 private:
+    bool isValid() const
+    {
+        return cudnn_ != nullptr;
+    }
+
     void setTensorDescriptor()
     {
         assert(isValid());
@@ -163,10 +181,18 @@ private:
         CHECK(cudnnSetTensorNdDescriptor(t_desc_, trtToCudnnDataType(data_type_), tensor_dims_.nbDims, tensor_dims_.d, tensor_strides_.d));
     }
 
-private:
-    bool isValid() const
+    std::string serialize()
     {
-        return cudnn_ != nullptr;
+        std::ostringstream ss(std::ios_base::binary);
+        write_stream((int32_t)StereoDnnPluginFactory::PluginType::kElu, ss);
+        write_stream((int32_t)data_type_, ss);
+        write_stream((uint8_t)format_, ss);
+        write_stream(in_dims_.nbDims, ss);
+        assert(in_dims_.nbDims <= Dims::MAX_DIMS);
+        for (int i = 0; i < in_dims_.nbDims; i++)
+            write_stream(in_dims_.d[i], ss);
+
+        return ss.str();
     }
 
 private:
@@ -191,6 +217,14 @@ IPlugin* PluginContainer::createEluPlugin(DataType data_type, std::string name)
 {
     std::lock_guard<std::mutex> lock(lock_);
     plugins_.push_back(new EluPlugin(data_type, log_, name));
+    return plugins_.back();
+}
+
+// Deserialization method.
+IPlugin* PluginContainer::deserializeEluPlugin(const char* name, const void* data, size_t size)
+{
+    std::lock_guard<std::mutex> lock(lock_);
+    plugins_.push_back(new EluPlugin(name, data, size, log_));
     return plugins_.back();
 }
 
