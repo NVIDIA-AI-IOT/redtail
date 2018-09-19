@@ -23,7 +23,7 @@ The project also contains [Stereo DNN](../master/stereoDNN/) models and runtime 
 * **2018-09-19**: Updates to Stereo DNN.
   * Moved to TensorRT 4.0
   * Enabled FP16 support in `ResNet18 2D` model, resulting in 2x performance increase (20fps on Jetson TX2).
-  * Enabled TensorRT serialization `ResNet18 2D` model to reduce model loading time from minutes to less than a second.
+  * Enabled TensorRT serialization in `ResNet18 2D` model to reduce model loading time from minutes to less than a second.
   * Better logging and profiler support.
 
 * **2018-06-04**: CVPR 2018 workshop. Fast version of Stereo DNN.
