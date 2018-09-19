@@ -18,8 +18,8 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
 list(APPEND CUDA_NVCC_FLAGS -std=c++14)
 list(APPEND CUDA_NVCC_FLAGS -lineinfo -Xcompiler -Wall -Xcompiler -Wextra)
 
-# Generate both PTX and SASS for Jetson TX2 and use base Maxwell PTX for everything else.
-list(APPEND CUDA_NVCC_FLAGS -gencode arch=compute_50,code=compute_50)
+# Generate both PTX and SASS for Jetson TX2 and use base Maxwell (TX1) PTX for everything else.
+list(APPEND CUDA_NVCC_FLAGS -gencode arch=compute_53,code=compute_53)
 list(APPEND CUDA_NVCC_FLAGS -gencode arch=compute_60,code=sm_61)
 list(APPEND CUDA_NVCC_FLAGS -gencode arch=compute_62,code=sm_62)
 

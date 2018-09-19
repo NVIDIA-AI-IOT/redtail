@@ -23,17 +23,18 @@ Note that these plugins make certain assumptions that are valid in case of Stere
 ## Models
 There are several Stereo DNN models included in this packages, the following table provides brief comparison. `TF` stands for TensorFlow and `TRT` - for our implementation based on TensorRT and cuDNN. All times are in milliseconds per image, averaged over 200 images.
 
-| Model        | Input size  | Titan Xp (TF) | Titan Xp (TRT) | Jetson TX2 (TRT) | D1 error (%) |
-| ---------    | ----------- | --------------| -------------- | ---------------- | ------------ |
-| NVSmall      | 1025x321    |       800     |       450      |       7800       |     9.8      |
-| NVTiny       |  513x161    |        75     |        40      |        360       |     11.12    |
-| ResNet-18    | 1025x321    |       950     |       650      |      11000       |     3.4(*)   |
-| ResNet-18 2D |  513x257    |        15     |        9      |        110       |     9.8      |
+| Model        | Input size  | Titan Xp (TF) | Titan Xp (TRT) | Jetson TX2 (TRT) FP32 / FP16 | D1 error (%) |
+| ---------    | ----------- | --------------| -------------- | ---------------------------  | ------------ |
+| NVSmall      | 1025x321    |       800     |       450      |       7800 / NA              |      9.8     |
+| NVTiny       |  513x161    |        75     |        40      |        360 / NA              |     11.12    |
+| ResNet-18    | 1025x321    |       950     |       650      |      11000 / NA              |     3.4(*)   |
+| ResNet-18 2D |  513x257    |        15     |        9       |        110 / 55              |     9.8      |
 
 Notes:
 * We could not run TensorFlow on Jetson with our models so no measurments were done in this case.
 * D1 error for `NVSmall` and `NVTiny` was measured on 200 training images from [KITTI 2015 stereo benchmark](http://www.cvlibs.net/datasets/kitti/eval_scene_flow.php?benchmark=stereo). This dataset was **not** used to train the models.
 * `*` - measured on [KITTI 2015 stereo test set](http://www.cvlibs.net/datasets/kitti/eval_scene_flow.php?benchmark=stereo). Note that this model was fine-tuned on 200 training images, so providing error on that dataset is not useful.
+* FP16 is currently enabled only for `ResNet-18 2D` model.
 
 ## Converting TensorFlow model to TensorRT C++ API model
 To convert TensorFlow model to TensorRT C++ API, run the `./scripts/model_builder.py` script which takes several named parameters: 

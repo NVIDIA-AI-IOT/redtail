@@ -18,7 +18,7 @@ def create(builder):
         input = 'concat'
         for l in ['conv2D_1', 'conv2D_2', 'conv2D_3ds', 'conv2D_4', 'conv2D_5', 'conv2D_6ds', 'conv2D_7', 'conv2D_8']:
             input = builder.write_2d_convolution(input, l, os.path.join('model/bneck_encoder2D', l))
-            input = builder.write_elu(input, l + '_act')
+            input = builder.write_act(input, l + '_act')
         return input
 
     def write_2d_bneck_decoder(input):
@@ -28,7 +28,7 @@ def create(builder):
             cur  = builder.write_2d_convolution_transpose(cur, l, os.path.join('model/bneck_decoder2D', l))
             if skip != '':
                 cur  = builder.write_add_tensors(cur, skip, l + '_add_skip')
-                cur  = builder.write_elu(cur, l + '_act')
+                cur  = builder.write_act(cur, l + '_act')
         return cur
 
     builder.write_header()

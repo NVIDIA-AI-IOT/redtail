@@ -13,6 +13,7 @@
 #include <opencv2/opencv.hpp>
 
 #include "redtail_tensorrt_plugins.h"
+#include "networks.h"
 
 #define UNUSED(x) ((void)(x))
 
@@ -25,33 +26,9 @@
 using namespace nvinfer1;
 using namespace redtail::tensorrt;
 
-namespace redtail { namespace tensorrt
-{
-using weight_map = std::unordered_map<std::string, Weights>;
-
-// NVSmall DNN: 1025x321 input, 96 max disparity.
-INetworkDefinition* createNVSmall1025x321Network(IBuilder& builder, IPluginContainer& plugin_factory,
-                                                 DimsCHW img_dims, const weight_map& weights, DataType data_type, ILogger& log);
-
-// Tiny version of NVSmall DNN: 513x161 input, 48 max disparity.
-INetworkDefinition* createNVTiny513x161Network(IBuilder& builder, IPluginContainer& plugin_factory,
-                                               DimsCHW img_dims, const weight_map& weights, DataType data_type,
-                                               ILogger& log);
-
-// Baseline ResNet-18 DNN: 1025x321 input, 136 max disparity.
-INetworkDefinition* createResNet18_1025x321Network(IBuilder& builder, IPluginContainer& plugin_factory,
-                                                   DimsCHW img_dims, const weight_map& weights, DataType data_type,
-                                                   ILogger& log);
-
-// ResNet18_2D DNN: 513x256 input, 96 max disparity.
-INetworkDefinition* createResNet18_2D_513x257Network(IBuilder& builder, IPluginContainer& plugin_factory,
-                                                     DimsCHW img_dims, const weight_map& weights, DataType data_type, ILogger& log);
-
-} }
-
 class Logger : public nvinfer1::ILogger
 {
-    public:
+public:
     void log(nvinfer1::ILogger::Severity severity, const char* msg) override
     {
         // Skip info (verbose) messages.
@@ -71,6 +48,37 @@ class Logger : public nvinfer1::ILogger
 };
 
 static Logger gLogger;
+
+class Profiler : public nvinfer1::IProfiler
+{
+public:
+    void printLayerTimes()
+    {
+        float total_time = 0;
+        for (size_t i = 0; i < profile_.size(); i++)
+        {
+            printf("%-60.60s %4.3fms\n", profile_[i].first.c_str(), profile_[i].second);
+            total_time += profile_[i].second;
+        }
+        printf("All layers  : %4.3f\n", total_time);
+    }
+
+protected:
+    void reportLayerTime(const char *layerName, float ms) override
+    {
+        auto record = std::find_if(profile_.begin(), profile_.end(), [&](const Record &r) { return r.first == layerName; });
+        if (record == profile_.end())
+            profile_.push_back(std::make_pair(layerName, ms));
+        else
+            record->second = ms;
+    }
+
+private:
+    using Record = std::pair<std::string, float>;
+    std::vector<Record> profile_;
+};
+
+static Profiler s_profiler;
 
 std::vector<float> readImgFile(const std::string& filename, int w, int h)
 {
@@ -169,7 +177,8 @@ int main(int argc, char** argv)
 
     // Read weights.
     // Note: the weights object lifetime must be at least the same as engine.
-    auto weights = readWeights(argv[4], data_type);
+    std::string weights_file(argv[4]);
+    auto weights = readWeights(weights_file, data_type);
     printf("Loaded %zu weight sets.\n", weights.size());
 
     //const int b = 1;
@@ -186,62 +195,85 @@ int main(int argc, char** argv)
     //auto img_right = readBinFile(argv[6]);
     assert(img_right.size() == (size_t)c * h * w);
 
-    // Create builder and network.
-    IBuilder* builder = createInferBuilder(gLogger);
+    // TensorRT pre-built plan file.
+    auto trt_plan_file = weights_file + ".plan";
+    std::ifstream trt_plan(trt_plan_file, std::ios::binary);
 
-    // Note: the plugin_factory object lifetime must be at least the same as engine.
-    auto plugin_factory = IPluginContainer::create(gLogger);
-    // TRT v3 supports FP16 only for the weights (e.g. convolutions) but not the data so use float data type.
-    INetworkDefinition* network = nullptr;
-    if (model_type == "nvsmall")
+    // Note: the plugin_container object lifetime must be at least the same as the engine.
+    auto plugin_container = IPluginContainer::create(gLogger);
+    ICudaEngine* engine   = nullptr;
+    // Check if we can load pre-built model from TRT plan file.
+    // Currently only ResNet18_2D supports serialization.
+    if (model_type == "resnet18_2D" && trt_plan.good())
     {
-        if (w == 1025)
-            network = createNVSmall1025x321Network(*builder, *plugin_factory, DimsCHW { c, h, w }, weights, DataType::kFLOAT, gLogger);
-        else if (w == 513)
-            network = createNVTiny513x161Network(  *builder, *plugin_factory, DimsCHW { c, h, w }, weights, DataType::kFLOAT, gLogger);
-        else
-            assert(false);
-    }
-    else if (model_type == "resnet18")
-    {
-        if (w == 1025)
-            network = createResNet18_1025x321Network(*builder, *plugin_factory, DimsCHW { c, h, w }, weights, DataType::kFLOAT, gLogger);
-        else
-        {
-            printf("ResNet-18 model supports only 1025x321 input image.\n");
-            exit(1);
-        }
-    }
-    else if (model_type == "resnet18_2D")
-    {
-        if (w == 513)
-            network = createResNet18_2D_513x257Network(*builder, *plugin_factory, DimsCHW { c, h, w }, weights, DataType::kFLOAT, gLogger);
-        else
-        {
-            printf("ResNet18_2D model supports only 513x257 input image.\n");
-            exit(1);
-        }
+        printf("Loading TensorRT plan from %s...\n", trt_plan_file.c_str());
+        // StereoDnnPluginFactory object is stateless as it adds plugins to corresponding container.
+        StereoDnnPluginFactory factory(*plugin_container);
+        IRuntime* runtime = createInferRuntime(gLogger);
+        // Load the plan.
+        std::stringstream model;
+        model << trt_plan.rdbuf();
+        model.seekg(0, model.beg);
+        const auto& model_final = model.str();
+        // Deserialize model.
+        engine = runtime->deserializeCudaEngine(model_final.c_str(), model_final.size(), &factory);
     }
     else
-        assert(false);
+    {
+        // Create builder and network.
+        IBuilder* builder = createInferBuilder(gLogger);
 
-    builder->setMaxBatchSize(1);
-    size_t workspace_bytes = 1024 * 1024 * 1024;
-    builder->setMaxWorkspaceSize(workspace_bytes);
+        // TRT v3 supports FP16 only for the weights (e.g. convolutions) but not the data so use float data type.
+        INetworkDefinition* network = nullptr;
+        if (model_type == "nvsmall")
+        {
+            if (w == 1025)
+                network = createNVSmall1025x321Network(*builder, *plugin_container, DimsCHW { c, h, w }, weights, DataType::kFLOAT, gLogger);
+            else if (w == 513)
+                network = createNVTiny513x161Network(  *builder, *plugin_container, DimsCHW { c, h, w }, weights, DataType::kFLOAT, gLogger);
+            else
+                assert(false);
+        }
+        else if (model_type == "resnet18")
+        {
+            if (w == 1025)
+                network = createResNet18_1025x321Network(*builder, *plugin_container, DimsCHW { c, h, w }, weights, DataType::kFLOAT, gLogger);
+            else
+            {
+                printf("ResNet-18 model supports only 1025x321 input image.\n");
+                exit(1);
+            }
+        }
+        else if (model_type == "resnet18_2D")
+        {
+            if (w == 513)
+                network = createResNet18_2D_513x257Network(*builder, *plugin_container, DimsCHW { c, h, w }, weights, data_type, gLogger);
+            else
+            {
+                printf("ResNet18_2D model supports only 513x257 input image.\n");
+                exit(1);
+            }
+        }
+        else
+            assert(false);
 
-    builder->setHalf2Mode(data_type == DataType::kHALF);
-    // Build the network.
-    auto engine = builder->buildCudaEngine(*network);
-    network->destroy();
+        builder->setMaxBatchSize(1);
+        size_t workspace_bytes = 1024 * 1024 * 1024;
+        builder->setMaxWorkspaceSize(workspace_bytes);
 
-    // REVIEW alexeyk: serialization is not yet supported. Need to implement IPluginFactory properly.
-    // IHostMemory *model_stream = engine->serialize();
-    // engine->destroy();
-    // builder->destroy();
+        builder->setHalf2Mode(data_type == DataType::kHALF);
+        // Build the network.
+        engine = builder->buildCudaEngine(*network);
+        network->destroy();
 
-    // IRuntime* runtime = createInferRuntime(gLogger);
-    // engine = runtime->deserializeCudaEngine(model_stream->data(), model_stream->size(), nullptr);
-    // model_stream->destroy();
+        if (model_type == "resnet18_2D")
+        {
+            printf("Saving TensorRT plan to %s...\n", trt_plan_file.c_str());
+            IHostMemory *model_stream = engine->serialize();
+            std::ofstream trt_plan_out(trt_plan_file, std::ios::binary);
+            trt_plan_out.write((const char*)model_stream->data(), model_stream->size());
+        }
+    }
 
     assert(engine->getNbBindings() == 3);
     void* buffers[3];
@@ -253,6 +285,9 @@ int main(int argc, char** argv)
     assert(out_idx == 2);
 
     IExecutionContext *context = engine->createExecutionContext();
+
+    bool use_profiler = true;
+    context->setProfiler(use_profiler ? &s_profiler : nullptr);
 
     std::vector<float> output(h * w);
 
@@ -272,6 +307,9 @@ int main(int argc, char** argv)
     UNUSED(err);
     auto host_elapsed_ms = std::chrono::duration<float, std::milli>(host_end - host_start).count();
     printf("Host time: %.4fms\n", host_elapsed_ms);
+
+    if (use_profiler)
+        s_profiler.printLayerTimes();
 
     // Copy output back to host.
     CHECK(cudaMemcpy(output.data(), buffers[out_idx], output.size() * sizeof(float), cudaMemcpyDeviceToHost));

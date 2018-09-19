@@ -63,6 +63,41 @@ std::string DimsUtils::toString(Dims dims)
 }
 
 // -----------------------------------------------------------------
+// String helpers.
+// -----------------------------------------------------------------
+std::string StrUtils::toString(DataType type)
+{
+    switch (type)
+    {
+    case DataType::kFLOAT:
+        return "Float";
+    case DataType::kHALF:
+        return "Half";
+    case DataType::kINT8:
+        return "INT8";
+    case DataType::kINT32:
+        return "INT32";
+    default:
+        return "Unknown (" + std::to_string((int)type) + ")";
+    }
+}
+
+std::string StrUtils::toString(PluginFormat format)
+{
+    switch (format)
+    {
+    case PluginFormat::kNCHW:
+        return "NCHW";
+    case PluginFormat::kNC2HW2:
+        return "NC2HW2";
+    case PluginFormat::kNHWC8:
+        return "NHWC8";
+    default:
+        return "Unknown (" + std::to_string((int)format) + ")";
+    }
+}
+
+// -----------------------------------------------------------------
 // Conversion helpers.
 // -----------------------------------------------------------------
 cudnnDataType_t trtToCudnnDataType(DataType trt_data_type)
@@ -89,6 +124,15 @@ std::unique_ptr<IPluginContainer> IPluginContainer::create(ILogger& log)
 // -----------------------------------------------------------------
 // Plugins helper functions.
 // -----------------------------------------------------------------
+IPluginLayer* addPlugin(INetworkDefinition& network, ITensor* const* inputs, int num_inputs, IPlugin* plugin)
+{
+    auto plugin_ext   = dynamic_cast<IPluginExt*>(plugin);
+    auto plugin_layer = plugin_ext != nullptr
+                        ? network.addPluginExt(inputs, num_inputs, *plugin_ext)
+                        : network.addPlugin(inputs, num_inputs, *plugin);
+    return plugin_layer;
+}
+
 ILayer* addElu(IPluginContainer& plugin_factory, INetworkDefinition& network, ITensor& input,
                DataType data_type, const std::string& name)
 {
@@ -97,22 +141,22 @@ ILayer* addElu(IPluginContainer& plugin_factory, INetworkDefinition& network, IT
     assert(plugin != nullptr);
     // Add to the network.
     ITensor* inputs[] = {&input};
-    auto     layer    = network.addPlugin(inputs, 1, *plugin);
+    auto     layer    = addPlugin(network, inputs, 1, plugin);
     assert(layer != nullptr);
     return layer;
 }
 
 ILayer* addCostVolume(IPluginContainer& plugin_factory, INetworkDefinition& network,
-                      ITensor& left_input, ITensor& right_input, 
+                      ITensor& left_input, ITensor& right_input,
                       CostVolumeType cv_type, int max_disparity,
-                      const std::string& name)
+                      DataType data_type, const std::string& name)
 {
     // Create plugin.
-    auto plugin = plugin_factory.createCostVolumePlugin(cv_type, max_disparity, name);
+    auto plugin = plugin_factory.createCostVolumePlugin(data_type, cv_type, max_disparity, name);
     assert(plugin != nullptr);
     // Add to the network.
     ITensor* inputs[] = {&left_input, &right_input};
-    auto layer = network.addPlugin(inputs, 2, *plugin);
+    auto layer = addPlugin(network, inputs, 2, plugin);
     assert(layer != nullptr);
     return layer;
 }
@@ -131,7 +175,7 @@ ILayer* addConv3D(IPluginContainer& plugin_factory, INetworkDefinition& network,
     assert(plugin != nullptr);
     // Add to the network.
     ITensor* inputs[] = {&input};
-    auto layer = network.addPlugin(inputs, 1, *plugin);
+    auto layer = addPlugin(network, inputs, 1, plugin);
     assert(layer != nullptr);
     return layer;
 }
@@ -150,7 +194,7 @@ ILayer* addConv3DTranspose(IPluginContainer& plugin_factory, INetworkDefinition&
     assert(plugin != nullptr);
     // Add to the network.
     ITensor* inputs[] = {&input};
-    auto layer = network.addPlugin(inputs, 1, *plugin);
+    auto layer = addPlugin(network, inputs, 1, plugin);
     assert(layer != nullptr);
     return layer;
 }
@@ -164,7 +208,7 @@ ILayer* addSlice(IPluginContainer& plugin_factory, INetworkDefinition& network, 
     assert(plugin != nullptr);
     // Add to the network.
     ITensor* inputs[] = {&input};
-    auto     layer    = network.addPlugin(inputs, 1, *plugin);
+    auto     layer    = addPlugin(network, inputs, 1, plugin);
     assert(layer != nullptr);
     return layer;
 }
@@ -178,7 +222,7 @@ ILayer* addTransform(IPluginContainer& plugin_factory, INetworkDefinition& netwo
     assert(plugin != nullptr);
     // Add to the network.
     ITensor* inputs[] = {&input};
-    auto     layer    = network.addPlugin(inputs, 1, *plugin);
+    auto     layer    = addPlugin(network, inputs, 1, plugin);
     assert(layer != nullptr);
     return layer;
 }
@@ -192,20 +236,20 @@ ILayer* addPad(IPluginContainer& plugin_factory, INetworkDefinition& network, IT
     assert(plugin != nullptr);
     // Add to the network.
     ITensor* inputs[] = {&input};
-    auto     layer    = network.addPlugin(inputs, 1, *plugin);
+    auto     layer    = addPlugin(network, inputs, 1, plugin);
     assert(layer != nullptr);
     return layer;
 }
 
 ILayer* addSoftargmax(IPluginContainer& plugin_factory, INetworkDefinition& network, ITensor& input,
-                      SoftargmaxType sm_type, const std::string& name)
+                      SoftargmaxType sm_type, DataType data_type, const std::string& name)
 {
     // Create plugin.
-    auto plugin = plugin_factory.createSoftargmaxPlugin(sm_type, name);
+    auto plugin = plugin_factory.createSoftargmaxPlugin(data_type, sm_type, name);
     assert(plugin != nullptr);
     // Add to the network.
     ITensor* inputs[] = {&input};
-    auto     layer    = network.addPlugin(inputs, 1, *plugin);
+    auto     layer    = addPlugin(network, inputs, 1, plugin);
     assert(layer != nullptr);
     return layer;
 }
@@ -232,6 +276,40 @@ void reportError(cudnnStatus_t status, const char* file, int line, const char* f
     str << file << ":" << line << ": " << func << ": cuDNN error " << status << " (" << cudnnGetErrorString(status) << ").";
     log.log(ILogger::Severity::kERROR, str.str().c_str());
     assert(status == CUDNN_STATUS_SUCCESS);
+}
+
+// -----------------------------------------------------------------
+// Plugin factory used in (de)serialization.
+// -----------------------------------------------------------------
+StereoDnnPluginFactory::StereoDnnPluginFactory(IPluginContainer& container):
+    container_(container)
+{
+}
+
+IPlugin* StereoDnnPluginFactory::createPlugin(const char* layerName, const void* serialData, size_t serialLength)
+{
+    assert(serialLength >= sizeof(int32_t));
+    size_t bytes_read = 0;
+    auto ptr          = (const uint8_t*)serialData;
+    auto plugin_type  = (PluginType)*(int32_t*)ptr;
+    bytes_read += sizeof(int32_t);
+    ptr += bytes_read;
+
+    IPlugin* plugin = nullptr;
+    switch (plugin_type)
+    {
+    case PluginType::kElu:
+            plugin = container_.deserializeEluPlugin(layerName, ptr, serialLength - bytes_read);
+        break;
+    case PluginType::kCostVolume:
+            plugin = container_.deserializeCostVolumePlugin(layerName, ptr, serialLength - bytes_read);
+        break;
+    case PluginType::kSoftargmax:
+            plugin = container_.deserializeSoftargmaxPlugin(layerName, ptr, serialLength - bytes_read);
+        break;
+    }
+
+    return plugin;
 }
 
 } }

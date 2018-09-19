@@ -20,6 +20,12 @@ The project also contains [Stereo DNN](../master/stereoDNN/) models and runtime 
 * [Demo video showing TrailNet generalization to ground vehicles and other environments](https://youtu.be/ZKF5N8xUxfw)
 
 # News
+* **2018-09-19**: Updates to Stereo DNN.
+  * Moved to TensorRT 4.0
+  * Enabled FP16 support in `ResNet18 2D` model, resulting in 2x performance increase (20fps on Jetson TX2).
+  * Enabled TensorRT serialization in `ResNet18 2D` model to reduce model loading time from minutes to less than a second.
+  * Better logging and profiler support.
+
 * **2018-06-04**: CVPR 2018 workshop. Fast version of Stereo DNN.
   * Presenting our work at [CVPR 2018](http://cvpr2018.thecvf.com/) conference as a part of [Workshop on Autonomous Driving](http://www.wad.ai/index.html).
   * Added fast version of Stereo DNN model based on ResNet18 2D model. The model runs at 10fps on Jetson TX2. See [README](../master/stereoDNN/) for details and check out updated [sample_app](../master/stereoDNN/sample_app).

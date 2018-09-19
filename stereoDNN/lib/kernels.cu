@@ -134,8 +134,10 @@ __global__ void costVolumeKernel(const T* left, const T* right, int32_t c, int32
 }
 
 template<>
-cudaError_t CudaKernels::computeCostVolume(const float* left, const float* right, Dims in_dims, float* cost_vol, Dims out_dims, cudaStream_t stream)
+cudaError_t CudaKernels::computeCostVolume(DataType data_type, const float* left, const float* right, Dims in_dims, 
+                                           float* cost_vol, Dims out_dims, cudaStream_t stream)
 {
+    assert(data_type == DataType::kFLOAT);
     assert(in_dims.nbDims  == 3);
     assert(out_dims.nbDims == 4);
 
@@ -162,6 +164,7 @@ cudaError_t CudaKernels::computeCostVolume(const float* left, const float* right
 // Correlation cost volume kernels.
 // -----------------------------------------------------------------
 
+// FP32, NCHW kernel.
 template<typename T>
 __global__ void corrCostVolumeKernel(const T* left, const T* right, int32_t c, int32_t h, int32_t w, int32_t disp, T* dst)
 {
@@ -196,24 +199,90 @@ __global__ void corrCostVolumeKernel(const T* left, const T* right, int32_t c, i
     dst[idst] = val;
 }
 
+// FP16, NC2HW2 kernel.
+__global__ void corrCostVolumeFP16NC2HW2Kernel(const float* left, const float* right, int32_t c, int32_t h, int32_t w, int32_t disp, float* dst)
+{
+    assert(left  != nullptr);
+    assert(right != nullptr);
+    assert(dst   != nullptr);
+
+    const uint32_t ix = blockIdx.x * blockDim.x + threadIdx.x;
+    const uint32_t iy = blockIdx.y * blockDim.y + threadIdx.y;
+    if (ix >= w || iy >= h)
+        return;
+
+    uint32_t pad = 2 * blockIdx.z;
+    assert(pad < disp);
+    size_t stride = h * w;
+
+    // REVIEW alexeyk: using FP32 arithmetic for better precision. FP16 works fine too
+    // but does not give any perf increase and causes slight loss in accuracy.
+    // __half2 val1{0, 0};
+    // __half2 val2{0, 0};
+    float val1 = 0;
+    float val2 = 0;
+    if (ix >= pad)
+    {
+        const float* pl = left  + iy * w + ix;
+        const float* pr = right + iy * w + ix - pad;
+        for (int32_t i = 0; i < (c + 1) / 2; i++)
+        {
+            // auto l  = *(__half2*)pl;
+            // auto r1 = *(__half2*)pr;
+            // auto r2 = ix >= pad + 1 ? *(__half2*)(pr - 1) : __half2{0, 0};
+            // val1 = __hfma2(l, r1, val1);
+            // val2 = __hfma2(l, r2, val2);
+            auto l  = __half22float2(*(__half2*)pl);
+            auto r1 = __half22float2(*(__half2*)pr);
+            auto r2 = ix >= pad + 1 ? __half22float2(*(__half2*)(pr - 1)) : float2{0, 0};
+            val1 += l.x * r1.x + l.y * r1.y;
+            val2 += l.x * r2.x + l.y * r2.y;
+            pl  += stride;
+            pr  += stride;
+        }
+    }
+
+    // Disparity feature maps are arranged from to min to max.
+    size_t idst = blockIdx.z * h * w + iy * w + ix;
+    // auto val  = __half2(__hadd(val1.x, val1.y), __hadd(val2.x, val2.y));
+    auto val  = __half2((__half)val1, (__half)val2);
+    dst[idst] = *(float*)&val;
+}
 
 template<>
-cudaError_t CudaKernels::computeCorrCostVolume(const float* left, const float* right, Dims in_dims, 
+cudaError_t CudaKernels::computeCorrCostVolume(DataType data_type, const float* left, const float* right, Dims in_dims, 
                                                float* cost_vol, Dims out_dims, cudaStream_t stream)
 {
+    assert(data_type == DataType::kFLOAT || data_type == DataType::kHALF);
     assert(in_dims.nbDims  == 3);
     assert(out_dims.nbDims == 3);
 
-    dim3 b_dim{16, 16, 1};
-    dim3 g_dim;
-    g_dim.x = getBlockCount(in_dims.d[2],  b_dim.x);
-    g_dim.y = getBlockCount(in_dims.d[1],  b_dim.y);
-    // Each block handles a particular disparity.
-    g_dim.z = out_dims.d[0];
+    if (data_type == DataType::kFLOAT)
+    {
+        dim3 b_dim{16, 16, 1};
+        dim3 g_dim;
+        g_dim.x = getBlockCount(in_dims.d[2],  b_dim.x);
+        g_dim.y = getBlockCount(in_dims.d[1],  b_dim.y);
+        // Each block handles a particular disparity.
+        g_dim.z = out_dims.d[0];
 
-    corrCostVolumeKernel<<<g_dim, b_dim, 0, stream>>>(left, right, in_dims.d[0], in_dims.d[1], in_dims.d[2], out_dims.d[0],
-                                                      cost_vol);
-    CHECKK(stream);
+        corrCostVolumeKernel<<<g_dim, b_dim, 0, stream>>>(left, right, in_dims.d[0], in_dims.d[1], in_dims.d[2], out_dims.d[0],
+                                                          cost_vol);
+        CHECKK(stream);
+    }
+    else if (data_type == DataType::kHALF)
+    {
+        dim3 b_dim{16, 16, 1};
+        dim3 g_dim;
+        g_dim.x = getBlockCount(in_dims.d[2], b_dim.x);
+        g_dim.y = getBlockCount(in_dims.d[1], b_dim.y);
+        // Each block handles 2 disparity values.
+        g_dim.z = (out_dims.d[0] + 1) / 2;
+
+        corrCostVolumeFP16NC2HW2Kernel<<<g_dim, b_dim, 0, stream>>>(left, right, in_dims.d[0], in_dims.d[1], in_dims.d[2], out_dims.d[0],
+                                                                    cost_vol);
+        CHECKK(stream);
+    }
     return cudaSuccess;
 }
 

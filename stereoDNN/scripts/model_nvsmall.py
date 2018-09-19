@@ -27,7 +27,7 @@ def create(builder):
             for i in range(len(sides)):
                 cur = '{}_{}'.format(sides[i], l)
                 builder.write_2d_convolution(layer_inp[i], cur, os.path.join('model/encoder2D', l))
-                builder.write_elu(cur, cur + '_act')
+                builder.write_act(cur, cur + '_act')
                 layer_inp[i] = cur + '_act'
         left  = builder.write_2d_convolution(layer_inp[0], sides[0] + '_conv5', 'model/encoder2D/conv5')
         right = builder.write_2d_convolution(layer_inp[1], sides[1] + '_conv5', 'model/encoder2D/conv5')
@@ -43,19 +43,19 @@ def create(builder):
             # No transpose for conv3D_8 as it goes directly to decoder.
             if l != 'conv3D_8':
                 input = builder.write_conv3d_transform(input, l + '_tran')
-            input = builder.write_elu(input, l + '_act')
+            input = builder.write_act(input, l + '_act')
         return input
 
     def write_3d_decoder(input):
         # deconv3D_1
         cur  = builder.write_3d_convolution_transpose(input, 'deconv3D_1', 'model/decoder3D')
         cur  = builder.write_add_tensors(cur, 'conv3D_5_act', 'deconv3D_1_add_skip')
-        cur  = builder.write_elu(cur, 'deconv3D_1_act')
+        cur  = builder.write_act(cur, 'deconv3D_1_act')
         # deconv3D_2
         cur  = builder.write_conv3d_transform(cur, 'deconv3D_1_transform')
         cur  = builder.write_3d_convolution_transpose(cur, 'deconv3D_2', 'model/decoder3D')
         cur  = builder.write_add_tensors(cur, 'conv3D_2_act', 'deconv3D_2_add_skip')
-        cur  = builder.write_elu(cur, 'deconv3D_2_act')
+        cur  = builder.write_act(cur, 'deconv3D_2_act')
         # deconv3D_3
         cur  = builder.write_conv3d_transform(cur, 'deconv3D_2_transform')
         cur  = builder.write_3d_convolution_transpose(cur, 'deconv3D_3', 'model/decoder3D')

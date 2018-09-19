@@ -24,7 +24,7 @@ with warnings.catch_warnings():
 from data_converters import *
 
 class TrtModelBuilder(object):
-    def __init__(self, model, net_name, code_writer, weights_writer, data_type):
+    def __init__(self, model, net_name, code_writer, weights_writer, data_type, act='elu'):
         self.default_indent = 4
         self.cur_indent     = 0
         self.max_line_width = 160
@@ -36,6 +36,8 @@ class TrtModelBuilder(object):
         self.code_writer    = code_writer
         self.weights_writer = weights_writer
         self.data_type      = data_type
+        self.act            = act
+        self.has_srelu_weights = False  
 
     def _indent_lines(self, src):
         src = src.split('\n')
@@ -123,6 +125,7 @@ network->markOutput(*{0}_out);
 auto {1} = network->addScale(*{0}, ScaleMode::kUNIFORM,
                              weights.at("{1}_shift"), weights.at("{1}_scale"), weights.at("{1}_power"));
 assert({1} != nullptr);
+{1}->setName("{1}");
 
 """
         code = code.format(input, name)
@@ -150,6 +153,7 @@ assert({1} != nullptr);
 auto {1} = network->addConvolution(*{0}->getOutput(0), {2}, DimsHW {{{3}, {4}}},
                                    weights.at("{1}_k"), weights.at("{1}_b"));
 assert({1} != nullptr);
+{1}->setName("{1}");
 {1}->setStride( DimsHW {{{5}, {6}}});
 {1}->setPadding(DimsHW {{{7}, {8}}});
 
@@ -230,6 +234,7 @@ assert({1}_pad != nullptr);
 auto {1} = network->addDeconvolution(*{0}->getOutput(0), {2}, DimsHW {{{3}, {4}}},
                                      weights.at("{1}_k"), weights.at("{1}_b"));
 assert({1} != nullptr);
+{1}->setName("{1}");
 {1}->setStride( DimsHW {{{5}, {6}}});
 {1}->setPadding(DimsHW {{{7}, {8}}});
 
@@ -292,6 +297,7 @@ auto {1} = addConv3D(plugin_factory, *network, *{0}->getOutput(0),
                      weights.at("{1}_k"), weights.at("{1}_b"),
                      "{1}");
 assert({1} != nullptr);
+{1}->setName("{1}");
 
 """
         g = tf.get_default_graph()
@@ -362,6 +368,7 @@ auto {1} = addConv3DTranspose(plugin_factory, *network, *{0}->getOutput(0),
                               weights.at("{1}_k"), weights.at("{1}_b"),
                               "{1}");
 assert({1} != nullptr);
+{1}->setName("{1}");
 
 """
         slice_code = """\
@@ -372,6 +379,7 @@ auto {0}_slice_layer = addSlice(plugin_factory, *network, *{0}->getOutput(0),
                                 {{4, {{{0}_out_dims.d[0] - 1, {0}_out_dims.d[1], {0}_out_dims.d[2], {0}_out_dims.d[3]}}}},
                                 "{0}_slice");
 assert({0}_slice_layer != nullptr);
+{0}_slice_layer->setName("{0}_slice_layer");
 
         """
         g = tf.get_default_graph()
@@ -443,16 +451,59 @@ assert({0}_slice_layer != nullptr);
         self._write_weights(name + '_b', bias_weights)
         return out_name
 
+    def write_act(self, input, name):
+        if self.act == 'elu':
+            return self.write_elu(input, name)
+        elif self.act == 'srelu':
+            return self.write_srelu(input, name)
+        else:
+            assert False, 'Not supported activation: {}'.format(self.act)
+
     def write_elu(self, input, name):
         # Write code.
         code = """\
 // {1} ELU activation op.
 auto {1} = addElu(plugin_factory, *network, *{0}->getOutput(0), data_type, "{1}");
 assert({1} != nullptr);
+{1}->setName("{1}");
 
 """
         code = code.format(input, name)
         self.code_writer.write(self._indent_lines(code))
+        return name
+
+    def write_srelu(self, input, name):
+        # Write code.
+        code = """\
+// {1} SReLU activation op.
+auto {1}_shift_up = network->addScale(*{0}->getOutput(0), ScaleMode::kUNIFORM,
+                                      weights.at("srelu_shift_up"), weights.at("srelu_shift_scale"), weights.at("srelu_shift_power"));
+
+assert({1}_shift_up != nullptr);
+{1}_shift_up->setName("{1}_shift_up");
+
+auto {1}_relu = network->addActivation(*{1}_shift_up->getOutput(0), ActivationType::kRELU);
+//auto {1}_relu = network->addActivation(*{0}->getOutput(0), ActivationType::kRELU);
+assert({1}_relu != nullptr);
+{1}_relu->setName("{1}_relu");
+
+//auto {1} = {1}_relu;
+auto {1} = network->addScale(*{1}_relu->getOutput(0), ScaleMode::kUNIFORM,
+                             weights.at("srelu_shift_down"), weights.at("srelu_shift_scale"), weights.at("srelu_shift_power"));
+assert({1} != nullptr);
+{1}->setName("{1}");
+
+"""
+        code = code.format(input, name)
+        self.code_writer.write(self._indent_lines(code))
+        # Write SReLU biases only once.
+        if not self.has_srelu_weights:
+            self._write_weights('srelu_shift_up',    [1.0])
+            self._write_weights('srelu_shift_down',  [-1.0])
+            self._write_weights('srelu_shift_scale', [1.0])
+            self._write_weights('srelu_shift_power', [1.0])
+            self.has_srelu_weights = True
+
         return name
 
     def write_sigmoid(self, input, name):
@@ -461,6 +512,7 @@ assert({1} != nullptr);
 // {1} sigmoid activation op.
 auto {1} = network->addActivation(*{0}->getOutput(0), ActivationType::kSIGMOID);
 assert({1} != nullptr);
+{1}->setName("{1}");
 
 """
         code = code.format(input, name)
@@ -472,8 +524,9 @@ assert({1} != nullptr);
         code = """\
 // {2} cost volume op.
 auto {2} = addCostVolume(plugin_factory, *network, *{0}->getOutput(0), *{1}->getOutput(0),
-                         {3}, {4}, "{2}");
+                         {3}, {4}, data_type, "{2}");
 assert({2} != nullptr);
+{2}->setName("{2}");
 
 """
         g = tf.get_default_graph()
@@ -495,6 +548,7 @@ assert({2} != nullptr);
 // {1} padding op.
 auto {1} = addPad(plugin_factory, *network, *{0}->getOutput(0), {{0, 0, 0, 0}}, {{1, 0, 0, 0}}, "{1}");
 assert({1} != nullptr);
+{1}->setName("{1}");
 
 """
         code = code.format(input, name)
@@ -506,6 +560,7 @@ assert({1} != nullptr);
 // Transpose output: KDHW -> DKHW for conv3d and DKHW -> KDHW for conv3d_transpose
 auto {1} = addTransform(plugin_factory, *network, *{0}->getOutput(0), {{1, 0, 2, 3}}, "{1}_transform");
 assert({1} != nullptr);
+{1}->setName("{1}");
 
 """
         code = code.format(input, name)
@@ -518,6 +573,7 @@ assert({1} != nullptr);
 // {2} tensor add op.
 auto {2} = network->addElementWise(*({0}->getOutput(0)), *({1}->getOutput(0)), ElementWiseOperation::kSUM);
 assert({2} != nullptr);
+{2}->setName("{2}");
 
 """
         code = code.format(t1, t2, name)
@@ -527,8 +583,9 @@ assert({2} != nullptr);
     def write_softargmax(self, input, name, is_argmin):
         code = """\
 // Softargmax.
-auto {1} = addSoftargmax(plugin_factory, *network, *{0}->getOutput(0), {2}, "{1}_softargmax");
+auto {1} = addSoftargmax(plugin_factory, *network, *{0}->getOutput(0), {2}, data_type, "{1}_softargmax");
 assert({1} != nullptr);
+{1}->setName("{1}");
 
 """
         code = code.format(input, name,
@@ -543,6 +600,7 @@ assert({1} != nullptr);
 ITensor* {2}_inputs[] = {{{0}->getOutput(0), {1}->getOutput(0)}};
 auto {2} = network->addConcatenation({2}_inputs, 2);
 assert({2} != nullptr);
+{2}->setName("{2}");
 
 """
         code = code.format(t1, t2, name)

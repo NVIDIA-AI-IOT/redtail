@@ -19,6 +19,21 @@ using namespace redtail::tensorrt;
 
 using FloatVec = std::vector<float>;
 
+namespace testing
+{
+ namespace internal
+ {
+  enum GTestColor {
+      COLOR_DEFAULT,
+      COLOR_RED,
+      COLOR_GREEN,
+      COLOR_YELLOW
+  };
+
+  extern void ColoredPrintf(GTestColor color, const char* fmt, ...);
+ }
+}
+
 // -----------------------------------------------------------------
 // TensorRT logger.
 // -----------------------------------------------------------------
@@ -64,6 +79,15 @@ struct NetInput
     FloatVec    data;
 };
 
+IPluginLayer* addPlugin(INetworkDefinition& network, ITensor* const* inputs, int num_inputs, IPlugin* plugin)
+{
+    auto plugin_ext   = dynamic_cast<IPluginExt*>(plugin);
+    auto plugin_layer = plugin_ext != nullptr 
+                        ? network.addPluginExt(inputs, num_inputs, *plugin_ext)
+                        : network.addPlugin(inputs, num_inputs, *plugin);
+    return plugin_layer;
+}
+
 // -----------------------------------------------------------------
 // Main test driver function. Creates all required TensorRT components
 // to run TRT plugin. The plugin is created by the provided factory.
@@ -76,6 +100,10 @@ FloatVec runPlugin(int batch_size, const std::vector<NetInput>& inputs, Dims out
 {
     // REVIEW alexeyk: assuming single output for now.
     const char* output_name = "output";
+
+    // Assuming that input tensors are in FP32 format, TRT will do the necessary conversion.
+    // Though the code below supports FP16 input tensors, our sample code uses FP32 only.
+    DataType input_data_type = DataType::kFLOAT;
 
     IBuilder* builder = createInferBuilder(*g_logger);
     // Note: must use EXPECT_* as ASSERT_ contains return statement.
@@ -98,7 +126,7 @@ FloatVec runPlugin(int batch_size, const std::vector<NetInput>& inputs, Dims out
         // addInput currently supports only 1D-3D input.
         if (in_dims.nbDims <= 3)
         {
-            auto input = network->addInput(inputs[i].name.c_str(), data_type,
+            auto input = network->addInput(inputs[i].name.c_str(), input_data_type,
                                            DimsCHW(in_dims.d[0], in_dims.d[1], in_dims.d[2]));
             EXPECT_NE(input, nullptr);
             plugin_inputs[i] = input;
@@ -108,7 +136,7 @@ FloatVec runPlugin(int batch_size, const std::vector<NetInput>& inputs, Dims out
             // Create input with flattened dims.
             EXPECT_EQ(DimsUtils::getTensorSize(in_dims), (int)DimsUtils::getTensorSize(in_dims));
             DimsCHW flat_dims{1, 1, (int)DimsUtils::getTensorSize(in_dims)};
-            auto input = network->addInput(inputs[i].name.c_str(), data_type, flat_dims);
+            auto input = network->addInput(inputs[i].name.c_str(), input_data_type, flat_dims);
             EXPECT_NE(input, nullptr);
             // Add reshape layer to restore original dims.
             auto shuf = network->addShuffle(*input);
@@ -123,9 +151,8 @@ FloatVec runPlugin(int batch_size, const std::vector<NetInput>& inputs, Dims out
     // Create plugin. The factory method can create additional layers/plugins.
     IPlugin* plugin = factory_op();
     EXPECT_NE(plugin, nullptr);
-
     // Add the plugin to the network.
-    auto plugin_layer = network->addPlugin(&plugin_inputs[0], inputs.size(), *plugin);
+    auto plugin_layer = addPlugin(*network, &plugin_inputs[0], inputs.size(), plugin);
     EXPECT_NE(plugin_layer, nullptr);
 
     ILayer* out_layer = post_proc_op(network, plugin_layer, factory);
@@ -137,12 +164,15 @@ FloatVec runPlugin(int batch_size, const std::vector<NetInput>& inputs, Dims out
     network->markOutput(*out_layer_out);
 
     // Build the engine.
+    // builder->setMinFindIterations(2);
+    // builder->setAverageFindIterations(2);
+
     builder->setMaxBatchSize(batch_size);
     // "ought to be enough for anybody."
     builder->setMaxWorkspaceSize(1024 * 1024 * 1024);
 
     builder->setHalf2Mode(data_type == DataType::kHALF);
-    
+
     auto engine = builder->buildCudaEngine(*network);
     EXPECT_NE(engine, nullptr);
     // Network and builder can be destroyed right after network is built.
@@ -154,7 +184,7 @@ FloatVec runPlugin(int batch_size, const std::vector<NetInput>& inputs, Dims out
     std::vector<void*> buffers(inputs.size() + 1);
     EXPECT_EQ(engine->getNbBindings(), buffers.size());
 
-    size_t elt_size_bytes = data_type == DataType::kHALF ? 2 : 4;
+    size_t elt_size_bytes = input_data_type == DataType::kHALF ? 2 : 4;
 
     for (size_t i = 0; i < inputs.size(); i++)
     {
@@ -163,7 +193,7 @@ FloatVec runPlugin(int batch_size, const std::vector<NetInput>& inputs, Dims out
         // Allocate and copy.
         CHECKL(cudaMalloc(&buffers[i], inputs[i].data.size() * elt_size_bytes), *g_logger);
         // Do FP32 -> FP16 of input if necessary.
-        if (data_type == DataType::kFLOAT)
+        if (input_data_type == DataType::kFLOAT)
             CHECKL(cudaMemcpy(buffers[i], inputs[i].data.data(), inputs[i].data.size() * elt_size_bytes, cudaMemcpyHostToDevice), *g_logger);
         else
         {
@@ -194,12 +224,12 @@ FloatVec runPlugin(int batch_size, const std::vector<NetInput>& inputs, Dims out
     // Copy results back to host.
     FloatVec out_h(out_size);
     // Do FP32 -> FP16 of input if necessary.
-    if (data_type == DataType::kFLOAT)
-    {    
+    if (input_data_type == DataType::kFLOAT)
+    {
         auto out_h_p = const_cast<float*>(out_h.data());
         CHECKL(cudaMemcpy(out_h_p, buffers[out_idx], out_h.size() * sizeof(float), cudaMemcpyDeviceToHost), *g_logger);
     }
-    else if (data_type == DataType::kHALF)
+    else if (input_data_type == DataType::kHALF)
     {
         std::vector<uint16_t> out_h_16(out_size);
         auto out_h_p = const_cast<uint16_t*>(out_h_16.data());
@@ -268,6 +298,28 @@ TEST(EluPluginTests, Basic)
         EXPECT_FLOAT_EQ(out[i], actual[i]) << "Vectors 'actual' and 'out' differ at index " << i;
 }
 
+TEST(EluPluginTests, BasicFP16)
+{
+    Dims in_dims;
+    Dims out_dims;
+    FloatVec in  = readBinaryFile(g_data_dir + "elu_i_01.bin", in_dims);
+    FloatVec out = readBinaryFile(g_data_dir + "elu_o_01.bin", out_dims);
+    ASSERT_EQ(in_dims.nbDims, out_dims.nbDims);
+    ASSERT_EQ(in_dims.nbDims, 4);
+    ASSERT_EQ(in_dims.d[0],   1);
+
+    auto data_type = DataType::kHALF;
+    auto factory = IPluginContainer::create(*g_logger);
+    auto actual  = runPlugin(1, {{"input", in_dims, in}}, out_dims,
+                             [&] { return factory->createEluPlugin(data_type, "ELU"); },
+                             [] (INetworkDefinition*, ILayer* plugin, IPluginContainer&) { return plugin; },
+                             *factory, data_type);
+
+    ASSERT_EQ(out.size(), actual.size());
+    for (size_t i = 0; i < actual.size(); i++)
+        EXPECT_NEAR(out[i], actual[i], 0.01) << "Vectors 'actual' and 'out' differ at index " << i;
+}
+
 TEST(EluPluginTests, Input4DBatchSize2)
 {
     Dims in_dims;
@@ -300,7 +352,7 @@ ILayer* addConv3DPostProcessing(INetworkDefinition* network, ILayer* plugin, IPl
     auto transform = factory.createTransformPlugin({1, 0, 2, 3}, "Conv3DTransform");
     EXPECT_NE(transform, nullptr);
     auto transform_in = plugin->getOutput(0);
-    auto transform_layer = network->addPlugin(&transform_in, 1, *transform);
+    auto transform_layer = addPlugin(*network, &transform_in, 1, transform);
     EXPECT_NE(transform_layer, nullptr);
     return transform_layer;
 }
@@ -506,7 +558,7 @@ TEST(Conv3DPluginTests, DHWStridesAndPadAsymDWithMultiKWithBiasAndElu)
                                 auto elu_plugin    = f.createEluPlugin(data_type, "ELU");
                                 EXPECT_NE(elu_plugin, nullptr);
                                 auto elu_plugin_in = transform->getOutput(0);
-                                auto plugin_layer  = network->addPlugin(&elu_plugin_in, 1, *elu_plugin);
+                                auto plugin_layer  = addPlugin(*network, &elu_plugin_in, 1, elu_plugin);
                                 EXPECT_NE(plugin_layer, nullptr);
                                 return plugin_layer;
                             },
@@ -546,7 +598,7 @@ TEST(Conv3DPluginTests, Multiple)
                                  auto pad_plugin = f.createPaddingPlugin({0, 0, 0, 0}, {1, 0, 0, 0}, "Pad_1");
                                  EXPECT_NE(pad_plugin, nullptr);
                                  auto pad_plugin_in = transform_1->getOutput(0);
-                                 auto pad_plugin_layer  = network->addPlugin(&pad_plugin_in, 1, *pad_plugin);
+                                 auto pad_plugin_layer  = addPlugin(*network, &pad_plugin_in, 1, pad_plugin);
                                  EXPECT_NE(pad_plugin_layer, nullptr);
                                  // Add second Conv3D.
                                  auto conv_plugin_2  = f.createConv3DPlugin(Conv3DType::kTensorFlow,
@@ -557,7 +609,7 @@ TEST(Conv3DPluginTests, Multiple)
                                                                             "Conv3D_2");
                                  EXPECT_NE(conv_plugin_2, nullptr);
                                  auto conv_plugin_2_in = pad_plugin_layer->getOutput(0);
-                                 auto plugin_layer_2  = network->addPlugin(&conv_plugin_2_in, 1, *conv_plugin_2);
+                                 auto plugin_layer_2   = addPlugin(*network, &conv_plugin_2_in, 1, conv_plugin_2);
                                  EXPECT_NE(plugin_layer_2, nullptr);
                                  // Add transform for the second convo.
                                  auto transform_2 = addConv3DPostProcessing(network, plugin_layer_2, f);
@@ -580,20 +632,20 @@ ILayer* addConv3DTranPostProc(INetworkDefinition* network, ILayer* plugin, IPlug
     auto transform = factory.createTransformPlugin({1, 0, 2, 3}, "Conv3DTransposeTransform");
     EXPECT_NE(transform, nullptr);
     auto transform_in = plugin->getOutput(0);
-    auto transform_layer = network->addPlugin(&transform_in, 1, *transform);
+    auto transform_layer = addPlugin(*network, &transform_in, 1, transform);
     EXPECT_NE(transform_layer, nullptr);
     return transform_layer;
 }
 
 ILayer* addConv3DTranSliceLayer(Dims dims, INetworkDefinition* network, ILayer* src_layer, IPluginContainer& factory)
 {
-    auto slice_plugin = factory.createSlicePlugin(dims, 
+    auto slice_plugin = factory.createSlicePlugin(dims,
                                                   {4, {0, 0, 0, 0}},
                                                   {4, {dims.d[0] - 1, dims.d[1], dims.d[2], dims.d[3]}},
                                                   "Slice");
     EXPECT_NE(slice_plugin, nullptr);
     auto slice_plugin_in = src_layer->getOutput(0);
-    auto slice_plugin_layer  = network->addPlugin(&slice_plugin_in, 1, *slice_plugin);
+    auto slice_plugin_layer  = addPlugin(*network, &slice_plugin_in, 1, slice_plugin);
     EXPECT_NE(slice_plugin_layer, nullptr);
     return slice_plugin_layer;
 }
@@ -691,13 +743,13 @@ TEST(Conv3DTransposePluginTests, DHWStridesAndPadAsymDWithMultiK)
                             },
                             [&] (INetworkDefinition* network, ILayer* plugin, IPluginContainer& f)
                             {
-                                 auto slice_plugin = f.createSlicePlugin(out_dims, 
+                                 auto slice_plugin = f.createSlicePlugin(out_dims,
                                                                          {4, {0, 0, 0, 0}},
                                                                          {4, {x_dims.d[1], x_dims.d[2], x_dims.d[3], x_dims.d[4]}},
                                                                          "Slice");
                                  EXPECT_NE(slice_plugin, nullptr);
                                  auto slice_plugin_in = plugin->getOutput(0);
-                                 auto slice_plugin_layer  = network->addPlugin(&slice_plugin_in, 1, *slice_plugin);
+                                 auto slice_plugin_layer  = addPlugin(*network, &slice_plugin_in, 1, slice_plugin);
                                  EXPECT_NE(slice_plugin_layer, nullptr);
                                  return slice_plugin_layer;
                             },
@@ -741,19 +793,19 @@ TEST(Conv3DTransposePluginTests, DHWStridesAndPadAsymDWithMultiKWithBiasAndElu)
                             },
                             [&] (INetworkDefinition* network, ILayer* plugin, IPluginContainer& f)
                             {
-                                 auto slice_plugin = f.createSlicePlugin(out_dims, 
+                                 auto slice_plugin = f.createSlicePlugin(out_dims,
                                                                          {4, {0, 0, 0, 0}},
                                                                          {4, {x_dims.d[1], x_dims.d[2], x_dims.d[3], x_dims.d[4]}},
                                                                          "Slice");
                                  EXPECT_NE(slice_plugin, nullptr);
                                  auto slice_plugin_in = plugin->getOutput(0);
-                                 auto slice_plugin_layer  = network->addPlugin(&slice_plugin_in, 1, *slice_plugin);
+                                 auto slice_plugin_layer  = addPlugin(*network, &slice_plugin_in, 1, slice_plugin);
                                  EXPECT_NE(slice_plugin_layer, nullptr);
                                  // Add ELU.
                                  auto elu_plugin    = f.createEluPlugin(data_type, "ELU");
                                  EXPECT_NE(elu_plugin, nullptr);
                                  auto elu_plugin_in = slice_plugin_layer->getOutput(0);
-                                 auto elu_layer  = network->addPlugin(&elu_plugin_in, 1, *elu_plugin);
+                                 auto elu_layer  = addPlugin(*network, &elu_plugin_in, 1, elu_plugin);
                                  EXPECT_NE(elu_layer, nullptr);
                                  return elu_layer;
                             },
@@ -811,7 +863,7 @@ TEST(Conv3DTransposePluginTests, Multiple)
                                     "Conv3DTranspose_2");
                                  EXPECT_NE(conv_tran_2_plugin, nullptr);
                                  auto conv_tran_2_plugin_in = transform_layer->getOutput(0);
-                                 auto conv_tran_2_plugin_layer  = network->addPlugin(&conv_tran_2_plugin_in, 1, *conv_tran_2_plugin);
+                                 auto conv_tran_2_plugin_layer = addPlugin(*network, &conv_tran_2_plugin_in, 1, conv_tran_2_plugin);
                                  EXPECT_NE(conv_tran_2_plugin_layer, nullptr);
 
                                 // Slice for the second convo.
@@ -845,7 +897,7 @@ TEST(CostVolumePluginTests, Basic)
     auto actual  = runPlugin(1, {{"left", left_dims, left}, {"right", right_dims, right}}, cost_vol_dims,
                              [&]
                              {
-                                 return factory->createCostVolumePlugin(CostVolumeType::kDefault, cost_vol_dims.d[1], "CostVolume");
+                                 return factory->createCostVolumePlugin(DataType::kFLOAT, CostVolumeType::kDefault, cost_vol_dims.d[1], "CostVolume");
                              },
                              [] (INetworkDefinition*, ILayer* plugin, IPluginContainer&) { return plugin; },
                              *factory);
@@ -871,7 +923,7 @@ TEST(CostVolumePluginTests, Large)
     auto actual  = runPlugin(1, {{"left", left_dims, left}, {"right", right_dims, right}}, cost_vol_dims,
                              [&]
                              {
-                                 return factory->createCostVolumePlugin(CostVolumeType::kDefault, cost_vol_dims.d[1], "CostVolume");
+                                 return factory->createCostVolumePlugin(DataType::kFLOAT, CostVolumeType::kDefault, cost_vol_dims.d[1], "CostVolume");
                              },
                              [] (INetworkDefinition*, ILayer* plugin, IPluginContainer&) { return plugin; },
                              *factory);
@@ -897,7 +949,7 @@ TEST(CostVolumePluginPerfTests, NVSmall)
     auto actual  = runPlugin(1, {{"left", in_dims, left}, {"right", in_dims, right}}, cv_dims,
                              [&]
                              {
-                                 return factory->createCostVolumePlugin(CostVolumeType::kDefault, cv_dims.d[1], "CostVolume");
+                                 return factory->createCostVolumePlugin(DataType::kFLOAT, CostVolumeType::kDefault, cv_dims.d[1], "CostVolume");
                              },
                              [] (INetworkDefinition*, ILayer* plugin, IPluginContainer&) { return plugin; },
                              *factory);
@@ -922,7 +974,8 @@ TEST(CorrCostVolumePluginTests, Basic)
     auto actual  = runPlugin(1, {{"left", left_dims, left}, {"right", right_dims, right}}, cost_vol_dims,
                              [&]
                              {
-                                 return factory->createCostVolumePlugin(CostVolumeType::kCorrelation, cost_vol_dims.d[1], "CostVolume");
+                                 return factory->createCostVolumePlugin(DataType::kFLOAT, CostVolumeType::kCorrelation,
+                                                                        cost_vol_dims.d[1], "CostVolume");
                              },
                              [] (INetworkDefinition*, ILayer* plugin, IPluginContainer&) { return plugin; },
                              *factory);
@@ -930,6 +983,46 @@ TEST(CorrCostVolumePluginTests, Basic)
     ASSERT_EQ(cost_vol.size(), actual.size());
     for (size_t i = 0; i < actual.size(); i++)
          EXPECT_NEAR(cost_vol[i], actual[i], 0.000001) << "Vectors 'actual' and 'cost_vol' differ at index " << i;
+}
+
+TEST(CorrCostVolumePluginTests, BasicFP16NC2HW2)
+{
+    // REVIEW alexeyk: TRT 4.0 fails with assert when using FP16/NC2HW2 combination on platforms
+    // with no native FP16 support. Should be fixed in the future release of TRT.
+    auto builder  = createInferBuilder(*g_logger);
+    bool has_fp16 = builder->platformHasFastFp16();
+    builder->destroy();
+    if (!has_fp16)
+    {
+        testing::internal::ColoredPrintf(testing::internal::COLOR_YELLOW,
+                                         "[**********] Current platofrm does not have native FP16 support, so the test will be skipped.\n");
+        return;
+    }
+
+    Dims left_dims;
+    Dims right_dims;
+    Dims cost_vol_dims;
+    FloatVec left     = readBinaryFile(g_data_dir + "corr_cost_vol_01_l.bin",  left_dims);
+    FloatVec right    = readBinaryFile(g_data_dir + "corr_cost_vol_01_r.bin",  right_dims);
+    FloatVec cost_vol = readBinaryFile(g_data_dir + "corr_cost_vol_01_cv.bin", cost_vol_dims);
+    ASSERT_EQ(left_dims.nbDims,     4);
+    ASSERT_EQ(right_dims.nbDims,    4);
+    ASSERT_EQ(cost_vol_dims.nbDims, 5);
+
+    auto data_type = DataType::kHALF;
+    auto factory = IPluginContainer::create(*g_logger);
+    auto actual  = runPlugin(1, {{"left", left_dims, left}, {"right", right_dims, right}}, cost_vol_dims,
+                             [&]
+                             {
+                                 return factory->createCostVolumePlugin(data_type, CostVolumeType::kCorrelation,
+                                                                        cost_vol_dims.d[1], "CostVolume");
+                             },
+                             [] (INetworkDefinition*, ILayer* plugin, IPluginContainer&) { return plugin; },
+                             *factory, data_type);
+
+    ASSERT_EQ(cost_vol.size(), actual.size());
+    for (size_t i = 0; i < actual.size(); i++)
+        EXPECT_NEAR(cost_vol[i], actual[i], 0.01) << "Vectors 'actual' and 'cost_vol' differ at index " << i;
 }
 
 // -----------------------------------------------------------------
@@ -949,7 +1042,7 @@ TEST(SoftargmaxPluginTests, ArgMinBasic)
     auto actual  = runPlugin(1, {{"x", x_dims, x}}, y_dims,
                              [&]
                              {
-                                 return factory->createSoftargmaxPlugin(SoftargmaxType::kMin, "Softargmax");
+                                 return factory->createSoftargmaxPlugin(DataType::kFLOAT, SoftargmaxType::kMin, "Softargmax");
                              },
                              [] (INetworkDefinition*, ILayer* plugin, IPluginContainer&) { return plugin; },
                              *factory);
@@ -972,7 +1065,7 @@ TEST(SoftargmaxPluginTests, ArgMinBatchSize2)
     auto actual  = runPlugin(2, {{"x", x_dims, x}}, y_dims,
                              [&]
                              {
-                                 return factory->createSoftargmaxPlugin(SoftargmaxType::kMin, "Softargmax");
+                                 return factory->createSoftargmaxPlugin(DataType::kFLOAT, SoftargmaxType::kMin, "Softargmax");
                              },
                              [] (INetworkDefinition*, ILayer* plugin, IPluginContainer&) { return plugin; },
                              *factory);
@@ -995,7 +1088,7 @@ TEST(SoftargmaxPluginTests, ArgMaxBasic)
     auto actual  = runPlugin(1, {{"x", x_dims, x}}, y_dims,
                              [&]
                              {
-                                 return factory->createSoftargmaxPlugin(SoftargmaxType::kMax, "Softargmax");
+                                 return factory->createSoftargmaxPlugin(DataType::kFLOAT, SoftargmaxType::kMax, "Softargmax");
                              },
                              [] (INetworkDefinition*, ILayer* plugin, IPluginContainer&) { return plugin; },
                              *factory);
