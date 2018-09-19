@@ -297,11 +297,13 @@ private:
         cudnnConvolutionFwdAlgoPerf_t algos[algo_count];
         auto err = cudnnFindConvolutionForwardAlgorithm(cudnn_, x_desc_, w_desc_, c_desc_, y_desc_,
                                                         algo_count, &res_algo_count, algos);
-        // Currently (v7.1) cuDNN fails with CUDNN_STATUS_ALLOC_FAILED apparently trying to allocate
-        // workspace when enumerating algos. Handle this case separately and use algo
-        // that does not require workspace.
+        // Currently (v7.1) cuDNN fails with CUDNN_STATUS_ALLOC_FAILED/CUDNN_STATUS_BAD_PARAM
+        // apparently while trying to allocate workspace when enumerating algos. 
+        // Handle this case separately and use algo that does not require workspace.
+        // This does not affect correctness as the actual computation will be done later
+        // and will fail in case of a genuine error.
         // REVIEW alexeyk: fix this when cuDNN is fixed.
-        if (err == CUDNN_STATUS_ALLOC_FAILED)
+        if (err == CUDNN_STATUS_ALLOC_FAILED || algos[0].status == CUDNN_STATUS_BAD_PARAM)
         {
             res_algo_count  = 1;
             algos[0].algo   = CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM;

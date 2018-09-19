@@ -612,6 +612,7 @@ INetworkDefinition* createResNet18_2D_513x257Network(IBuilder& builder, IPluginC
     ITensor* concat_inputs[] = {left_conv1_act->getOutput(0), softargmax->getOutput(0)};
     auto concat = network->addConcatenation(concat_inputs, 2);
     assert(concat != nullptr);
+    concat->setName("concat");
 
     // conv2D_1 convolution op.
     auto conv2D_1 = network->addConvolution(*concat->getOutput(0), 32, DimsHW {3, 3},

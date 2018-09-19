@@ -297,6 +297,7 @@ auto {1} = addConv3D(plugin_factory, *network, *{0}->getOutput(0),
                      weights.at("{1}_k"), weights.at("{1}_b"),
                      "{1}");
 assert({1} != nullptr);
+{1}->setName("{1}");
 
 """
         g = tf.get_default_graph()
@@ -367,6 +368,7 @@ auto {1} = addConv3DTranspose(plugin_factory, *network, *{0}->getOutput(0),
                               weights.at("{1}_k"), weights.at("{1}_b"),
                               "{1}");
 assert({1} != nullptr);
+{1}->setName("{1}");
 
 """
         slice_code = """\
@@ -377,6 +379,7 @@ auto {0}_slice_layer = addSlice(plugin_factory, *network, *{0}->getOutput(0),
                                 {{4, {{{0}_out_dims.d[0] - 1, {0}_out_dims.d[1], {0}_out_dims.d[2], {0}_out_dims.d[3]}}}},
                                 "{0}_slice");
 assert({0}_slice_layer != nullptr);
+{0}_slice_layer->setName("{0}_slice_layer");
 
         """
         g = tf.get_default_graph()
@@ -545,6 +548,7 @@ assert({2} != nullptr);
 // {1} padding op.
 auto {1} = addPad(plugin_factory, *network, *{0}->getOutput(0), {{0, 0, 0, 0}}, {{1, 0, 0, 0}}, "{1}");
 assert({1} != nullptr);
+{1}->setName("{1}");
 
 """
         code = code.format(input, name)
@@ -556,6 +560,7 @@ assert({1} != nullptr);
 // Transpose output: KDHW -> DKHW for conv3d and DKHW -> KDHW for conv3d_transpose
 auto {1} = addTransform(plugin_factory, *network, *{0}->getOutput(0), {{1, 0, 2, 3}}, "{1}_transform");
 assert({1} != nullptr);
+{1}->setName("{1}");
 
 """
         code = code.format(input, name)
@@ -595,6 +600,7 @@ assert({1} != nullptr);
 ITensor* {2}_inputs[] = {{{0}->getOutput(0), {1}->getOutput(0)}};
 auto {2} = network->addConcatenation({2}_inputs, 2);
 assert({2} != nullptr);
+{2}->setName("{2}");
 
 """
         code = code.format(t1, t2, name)
