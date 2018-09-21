@@ -87,6 +87,9 @@ RUN apt-get -y --no-install-recommends install \
     libgstreamer-plugins-good1.0-dev \
     libyaml-cpp-dev                  \
     v4l-utils
+    
+# Upgrade pip
+pip install --upgrade pip
 
 # Gazebo
 WORKDIR ${HOME}
