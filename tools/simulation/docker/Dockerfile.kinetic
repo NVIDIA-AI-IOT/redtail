@@ -12,8 +12,7 @@ ARG TENSORRT_TAR_FILE
 
 WORKDIR ${HOME}
 
-RUN apt-get update && apt-get -y  --no-install-recommends install software-properties-common \
-    && add-apt-repository ppa:ubuntu-toolchain-r/test
+RUN apt-get update && apt-get -y  --no-install-recommends install software-properties-common
 
 # cuDNN version must match the one used by TensorRT.
 # TRT 4.0 is compiled with cuDNN 7.1.
@@ -63,6 +62,7 @@ RUN apt-get update && apt-get -y --no-install-recommends install \
     && apt-get clean autoclean \
     # pip
     && pip install setuptools wheel \
+    && pip install 'matplotlib==2.2.2' --force-reinstall \
     # coveralls code coverage reporting
     && pip install cpp-coveralls \
     # jinja template generation
