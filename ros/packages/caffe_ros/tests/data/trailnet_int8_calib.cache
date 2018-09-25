@@ -1,54 +1,56 @@
 1
-(Unnamed ITensor* 12): 3c66f92e
-conv1: 3c04519f
-pool1: 3c016718
-res1_1_1: 3c010a14
-(Unnamed ITensor* 21): 3ce8219b
-(Unnamed ITensor* 23): 3d1474bf
-(Unnamed ITensor* 31): 3d8316b5
-res2_1_1: 3c01cfc8
-softmax_t: 3be25d0c
-(Unnamed ITensor* 56): 3e0c8ef5
-(Unnamed ITensor* 37): 3d76540e
-(Unnamed ITensor* 14): 3cb3e96f
-(Unnamed ITensor* 18): 3ca98b20
-res4_2_1: 3c023151
-res1_2: 3cbbbdf3
-(Unnamed ITensor* 80): 3dcdbb3f
-fc3_t: 3d8e6f0d
-(Unnamed ITensor* 33): 3d9aba8f
-res2_1: 3c01a251
-(Unnamed ITensor* 42): 3dc7db29
-(Unnamed ITensor* 50): 3e30779d
-(Unnamed ITensor* 59): 3e49a689
-sub_mean: 3b9e3ebb
-data: 400fabe8
-(Unnamed ITensor* 46): 3daa87d1
-res2_1_2: 3d2c4b58
-(Unnamed ITensor* 40): 3db93d03
-res3_1: 3d5a4a5b
-res2_2_1: 3c01ca05
-(Unnamed ITensor* 78): 3e4fb8a4
-(Unnamed ITensor* 61): 3e51b72a
-(Unnamed ITensor* 52): 3e368ce7
-res3_1_2: 3db36048
-res1_2_1: 3c497c69
-fc3: 3e91f7f1
-(Unnamed ITensor* 69): 3e1a721f
-res2_2: 3c016a8c
-res4_1_2: 3de4c1d9
-res1_1: 3c66f92f
-res3_2_1: 3d455a9e
-softmax: 3c00e5d4
-res4_1: 3d1a681c
-(Unnamed ITensor* 27): 3d3b70b6
-res3_2: 3d3b9f83
-res4_2: 3c023e26
-(Unnamed ITensor* 9): 3c7091cc
-(Unnamed ITensor* 75): 3e09c85e
-res3_1_1: 3c01b81e
-pool_avg: 3c159346
-(Unnamed ITensor* 65): 3e27c4e6
-(Unnamed ITensor* 4): 3c81c69e
-res4_1_1: 3d669c33
-(Unnamed ITensor* 71): 3e18ef86
+(Unnamed ITensor* 12): 3c99e2ac
+(Unnamed ITensor* 40): 3dca9489
+pool1: 3c296417
+res4_1_proj: 3df4e5c1
+res1_1_1: 3c015a58
+(Unnamed ITensor* 21): 3d032105
+(Unnamed ITensor* 23): 3d1f25de
+(Unnamed ITensor* 31): 3d892713
+res2_1_1: 3c019f21
+softmax_t: 3c02c000
+(Unnamed ITensor* 56): 3e100a0c
+(Unnamed ITensor* 37): 3d75caa3
+(Unnamed ITensor* 14): 3cd54ba3
+res1_2: 3cb3f14b
+(Unnamed ITensor* 80): 3e225f75
+fc3_t: 3cb15991
+(Unnamed ITensor* 4): 3c8ac3bf
+(Unnamed ITensor* 33): 3d98cd1b
+res2_1: 3c025baf
+(Unnamed ITensor* 42): 3dd8d7cc
+(Unnamed ITensor* 50): 3e38d6fe
+(Unnamed ITensor* 59): 3e57e962
+sub_mean: 3baad922
+data: 401ce88d
+(Unnamed ITensor* 46): 3db26938
+conv1: 3c01440f
+(Unnamed ITensor* 69): 3e2d0fe0
+res2_2: 3d2ce289
+res3_1: 3d21580a
+res2_2_1: 3c01bdb2
+(Unnamed ITensor* 61): 3e5edd05
+(Unnamed ITensor* 78): 3e818215
+(Unnamed ITensor* 52): 3e44452b
+res1_2_1: 3c6fbcaf
+fc3: 3e350887
+res3_1_proj: 3db4455f
+(Unnamed ITensor* 18): 3cd5a116
+res2_1_proj: 3cf6aa94
+res4_2_1: 3d668360
+res1_1: 3c963591
+(Unnamed ITensor* 9): 3c880658
+res4_2: 3d0ef404
+res3_2_1: 3d3ccadc
+softmax copy: 3c01eeb9
+softmax: 3c01eeb9
+res4_1: 3d1f8170
+(Unnamed ITensor* 27): 3d315523
+res3_2: 3d3da341
+res4_1_1: 3d658b6e
+softmax_t copy: 3c02c000
+(Unnamed ITensor* 71): 3e327e8e
+(Unnamed ITensor* 75): 3e0f1a0c
+(Unnamed ITensor* 65): 3e302791
+res3_1_1: 3d1f303c
+pool_avg: 3c01d9c7

@@ -25,7 +25,7 @@ public:
                      ConstStr& input_blob, ConstStr& output_blob,
                      nvinfer1::DataType data_type, bool use_cached_model);
 
-    void forward(const unsigned char* input, size_t w, size_t h, size_t c, const std::string& encoding);
+    void forward(const unsigned char* input, size_t w, size_t h, const std::string& encoding);
 
     int getInWidth() const    { return in_dims_.w(); }
     int getInHeight() const   { return in_dims_.h(); }

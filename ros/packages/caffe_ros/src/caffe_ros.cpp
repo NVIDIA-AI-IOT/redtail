@@ -131,7 +131,7 @@ sensor_msgs::Image::ConstPtr CaffeRos::computeOutputs()
         return nullptr;
 
     auto img = *cur_img_;
-    net_.forward(img.data.data(), img.width, img.height, 3, img.encoding);
+    net_.forward(img.data.data(), img.width, img.height, img.encoding);
     auto out_msg = boost::make_shared<sensor_msgs::Image>();
     // Set stamp and frame id to the same value as source image so we can synchronize with other nodes if needed.
     out_msg->header.stamp.sec  = img.header.stamp.sec;
@@ -205,9 +205,9 @@ void CaffeRos::imageCallback(const sensor_msgs::Image::ConstPtr& msg)
     auto img = *msg;
     //ROS_DEBUG("imageCallback: %u, %u, %s", img.width, img.height, img.encoding.c_str());
     // Only RGB8 is currently supported.
-    if (img.encoding != "rgb8" && img.encoding != "bgr8")
+    if (img.encoding != "rgb8" && img.encoding != "bgr8" && img.encoding != "bgra8")
     {
-        ROS_FATAL("Image encoding %s is not yet supported. Supported encodings: rgb8, bgr8", img.encoding.c_str());
+        ROS_FATAL("Image encoding %s is not yet supported. Supported encodings: rgb8, bgr8, bgra8", img.encoding.c_str());
         ros::shutdown();
     }
     cur_img_ = msg;

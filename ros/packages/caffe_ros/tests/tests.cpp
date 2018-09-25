@@ -28,13 +28,15 @@ public:
 
 static boost::shared_ptr<sensor_msgs::Image> readImage(const std::string& filename, const std::string& encoding = "rgb8")
 {
-    EXPECT_TRUE(encoding == "rgb8" || encoding == "bgr8");
+    EXPECT_TRUE(encoding == "rgb8" || encoding == "bgr8" || encoding == "bgra8");
     auto img = cv::imread(filename);
     SCOPED_TRACE(filename);
     EXPECT_TRUE(img.cols > 0 && img.rows > 0);
-    // Convert image from BGR format used by OpenCV to RGB.
+    // Convert image from BGR format used by OpenCV to RGB or BGRA.
     if (encoding == "rgb8")
         cv::cvtColor(img, img, CV_BGR2RGB);
+    else if (encoding == "bgra8")
+        cv::cvtColor(img, img, CV_BGR2BGRA);
     auto img_msg = boost::make_shared<sensor_msgs::Image>();
     img_msg->encoding = encoding;
     img_msg->width = img.cols;
@@ -130,6 +132,64 @@ TEST(CaffeRosTests, TrailNetPredictionsBGR8)
     for (size_t i = 0; i < images.size(); i++)
     {
         auto img_msg = readImage((data_dir / images[i]).string(), "bgr8");
+        // Use image index as a unique timestamp.
+        img_msg->header.stamp.sec  = 0;
+        img_msg->header.stamp.nsec = (int)i;
+
+        ros::Rate rate(1000);
+        // Wait until DNN processes the current messages. There might be multiple messages
+        // in the queue so make sure to select the right one based on current index.
+        while (ros::ok() && (t.dnn_out_ == nullptr || t.dnn_out_->header.stamp.nsec != i))
+        {
+            img_pub.publish(img_msg);
+            ros::spinOnce();
+            rate.sleep();
+        }
+        
+        EXPECT_TRUE(t.dnn_out_ != nullptr);
+        auto dnn_out = *t.dnn_out_;
+        // The output should be 1x1x6 (HxWxC).
+        EXPECT_EQ(dnn_out.width,  1);
+        EXPECT_EQ(dnn_out.height, 1);
+        // float32, channels == 6.
+        EXPECT_EQ(dnn_out.encoding, "32FC6");
+        
+        auto data  = reinterpret_cast<const float*>(dnn_out.data.data());
+        for (int col = 0; col < 6; col++)
+        {
+            // Must use proper floating point comparison.
+            EXPECT_NEAR(data[col], predictions[i][col], 0.001f) << "Values are not equal at (" << i << ", " << col <<")";
+        }
+    }
+}
+
+TEST(CaffeRosTests, TrailNetPredictionsBGRA8)
+{
+    ros::NodeHandle nh("~");
+    std::string test_data_dir;
+    nh.param<std::string>("test_data_dir", test_data_dir, "");
+    ASSERT_TRUE(fs::exists(test_data_dir));
+
+    CaffeRosTestsCallback t;
+    auto dnn_sub = nh.subscribe<sensor_msgs::Image>("/trailnet/dnn/network/output", 1,
+                                                    &CaffeRosTestsCallback::dnnCallback, &t);
+    const char* camera_topic = "/trailnet/camera/image_raw";
+    auto img_pub = nh.advertise<sensor_msgs::Image>(camera_topic, 1);
+
+    // Test images and expected predictions.
+    auto images            = std::vector<std::string>{"rot_l.jpg", "rot_c.jpg", "rot_r.jpg", "tran_l.jpg", "tran_r.jpg"};
+    float predictions[][6] = {{0.932, 0.060, 0.006, 0.080, 0.848, 0.071},
+                              {0.040, 0.958, 0.001, 0.488, 0.375, 0.135},
+                              {0.000, 0.027, 0.971, 0.036, 0.407, 0.555},
+                              {0.011, 0.988, 0.000, 0.981, 0.008, 0.009},
+                              {0.000, 0.855, 0.144, 0.013, 0.031, 0.954}};
+    
+    // When running using rostest, current directory is $HOME/.ros
+    fs::path data_dir{test_data_dir};
+
+    for (size_t i = 0; i < images.size(); i++)
+    {
+        auto img_msg = readImage((data_dir / images[i]).string(), "bgra8");
         // Use image index as a unique timestamp.
         img_msg->header.stamp.sec  = 0;
         img_msg->header.stamp.nsec = (int)i;

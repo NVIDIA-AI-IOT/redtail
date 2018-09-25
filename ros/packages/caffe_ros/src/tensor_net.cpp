@@ -259,10 +259,9 @@ void TensorNet::loadNetwork(ConstStr& prototxt_path, ConstStr& model_path,
     }
 }
 
-void TensorNet::forward(const unsigned char* input, size_t w, size_t h, size_t c, const std::string& encoding)
+void TensorNet::forward(const unsigned char* input, size_t w, size_t h, const std::string& encoding)
 {
-    ROS_ASSERT(encoding == "rgb8" || encoding == "bgr8");
-    ROS_ASSERT(c == (size_t)in_dims_.c());
+    ROS_ASSERT(encoding == "rgb8" || encoding == "bgr8" || encoding == "bgra8");
     //ROS_DEBUG("Forward: input image is (%zu, %zu, %zu), network input is (%u, %u, %u)", w, h, c, in_dims_.w(), in_dims_.h(), in_dims_.c());
 
     // REVIEW alexeyk: extract to a separate methog/transformer class.
@@ -270,7 +269,7 @@ void TensorNet::forward(const unsigned char* input, size_t w, size_t h, size_t c
 
     ros::Time start = ros::Time::now();
 
-    in_h_ = cv::Mat((int)h, (int)w, CV_8UC3, (void*)input);
+    in_h_ = cv::Mat((int)h, (int)w, encoding == "bgra8" ? CV_8UC4 : CV_8UC3, (void*)input);
     in_final_h_ = preprocessImage(in_h_, in_dims_.w(), in_dims_.h(), inp_fmt_, encoding, inp_scale_, inp_shift_);
     // Copy to the device.
     ROS_ASSERT(in_final_h_.isContinuous());
@@ -307,15 +306,19 @@ cv::Mat preprocessImage(cv::Mat img, int dst_img_w, int dst_img_h, InputFormat i
     // Handle encodings.
     if (inp_fmt == InputFormat::BGR)
     {
-        // Convert image from RGB to BGR format used by OpenCV if needed.
+        // Convert image from RGB/BGRA to BGR format.
         if (encoding == "rgb8")
             cv::cvtColor(img, img, CV_RGB2BGR);
+        else if (encoding == "bgra8")
+            cv::cvtColor(img, img, CV_BGRA2BGR);
     }
     else if (inp_fmt == InputFormat::RGB)
     {
         // Input image in OpenCV BGR, convert to RGB.
         if (encoding == "bgr8")
             cv::cvtColor(img, img, CV_BGR2RGB);
+        else if (encoding == "bgra8")
+            cv::cvtColor(img, img, CV_BGRA2RGB);
     }
     //ROS_INFO("Dims: (%zu, %zu) -> (%zu, %zu)", w, h, (size_t)dst_img_w, (size_t)dst_img_h);
     // Convert to floating point type.
