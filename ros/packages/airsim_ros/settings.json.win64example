@@ -1,0 +1,102 @@
+{
+  "SettingsVersion": 1.2,
+  "SimMode": "",
+  "ClockType": "",
+  "ClockSpeed": 1,
+  "LocalHostIp": "192.168.2.1",
+  "RecordUIVisible": true,
+  "LogMessagesVisible": true,
+  "ViewMode": "",
+  "RpcEnabled": true,
+  "EngineSound": false,
+  "PhysicsEngineName": "",
+  "SpeedUnitFactor": 1.0,
+
+  "CameraDefaults": {
+    "CaptureSettings": [
+      {
+        "ImageType": 0,
+        "Width": 640,
+        "Height": 360,
+        "FOV_Degrees": 90,
+        "AutoExposureSpeed": 100,
+        "AutoExposureBias": 0,
+        "AutoExposureMaxBrightness": 0.64,
+        "AutoExposureMinBrightness": 0.03,
+        "MotionBlurAmount": 0,
+        "TargetGamma": 1.0,
+        "ProjectionMode": "",
+        "OrthoWidth": 5.12
+      }
+    ]
+  },
+
+
+
+  "PawnPaths": {
+    "DefaultCar": {"PawnBP": "Class'/AirSim/VehicleAdv/SUV/SuvCarPawn.SuvCarPaw$
+    "Buggy": {"PawnBP": "Class'/AirSim/VehicleAdv/Buggy/Buggy.Buggy_C'"},
+    "DefaultQuadrotor": {"PawnBP": "Class'/AirSim/Blueprints/BP_FlyingPawn.BP_F$
+    "DefaultComputerVision": {"PawnBP": "Class'/AirSim/Blueprints/BP_ComputerVi$
+    "AirSimQuadrotor": {"PawnBP": "Class'/AirSim/Blueprints/BP_FlyingPawn.BP_Fl$
+    "GoldenEagle": {"PawnBP": "Class'/AirSim/Blueprints/GoldenEagle.GoldenEagle$
+  },
+
+ "Vehicles":  {
+    "Suv": {
+      "VehicleType": "PhysXCar",
+      "DefaultVehicleState": "Armed",
+      "AutoCreate": true,
+      "PawnPath": "Buggy",
+      "EnableCollisionPassthrogh": false,
+      "EnableCollisions": true,
+      "IsFpvVehicle": true,
+      "AllowAPIAlways": true,
+      "RC": {
+        "RemoteControlID": 0,
+        "AllowAPIWhenDisconnected": false
+      }
+    },
+    "Buggy": {
+      "VehicleType": "PhysXCar",
+      "DefaultVehicleState": "Armed",
+      "AutoCreate": false,
+      "PawnPath": "Buggy",
+      "EnableCollisionPassthrogh": false,
+      "EnableCollisions": true,
+      "IsFpvVehicle": false,
+      "AllowAPIAlways": true,
+      "RC": {
+        "RemoteControlID": 0,
+        "AllowAPIWhenDisconnected": false
+      }
+    },
+    "Multirotor": {
+      "VehicleType": "SimpleFlight",
+      "DefaultVehicleState": "Armed",
+      "AutoCreate": true,
+      "PawnPath": "",
+      "IsFpvVehicle": true,
+      "AllowAPIAlways": true,
+      "RC": {
+        "RemoteControlID": -1
+      }
+    },
+
+    "Eagle": {
+      "VehicleType": "SimpleFlight",
+      "DefaultVehicleState": "Armed",
+      "AutoCreate": false,
+      "PawnPath": "GoldenEagle",
+      "EnableCollisionPassthrogh": false,
+      "EnableCollisions": true,
+      "IsFpvVehicle": false,
+      "AllowAPIAlways": true,
+      "RC": {
+        "RemoteControlID": -1
+      }
+    }
+  }
+}
+
+
