@@ -223,7 +223,7 @@ int main(int argc, char** argv)
         // Create builder and network.
         IBuilder* builder = createInferBuilder(gLogger);
 
-        // TRT v3 supports FP16 only for the weights (e.g. convolutions) but not the data so use float data type.
+        // For now only ResNet18_2D has proper support for FP16.
         INetworkDefinition* network = nullptr;
         if (model_type == "nvsmall")
         {

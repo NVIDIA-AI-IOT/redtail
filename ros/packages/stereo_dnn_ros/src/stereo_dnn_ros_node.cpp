@@ -57,13 +57,43 @@ cv::Mat preprocessImage(cv::Mat img, int dst_img_w, int dst_img_h, ConstStr& enc
     return img.reshape(1, dst_img_w * dst_img_h).t();
 }
 
-sensor_msgs::Image::ConstPtr computeOutputs(IExecutionContext *context, int idx_l, int idx_r, int idx_out, void** buffers)
+cv::Mat dispToColor(cv::Mat& disp, float max_disp)
+{
+    // Weights and cumsum are precomputed from Python code.
+    const float weights[]{8.77192974, 5.40540552, 8.77192974, 5.74712658, 8.77192974, 5.40540552, 8.77192974, 0};
+    const float cumsum[] {0,          0.114,      0.299,      0.413,      0.587,      0.70100003, 0.88600004, 1};
+    const float w_map[][3]{{0, 0, 0}, {0, 0, 1}, {1, 0, 0}, {1, 0, 1},
+                           {0, 1, 0}, {0, 1, 1}, {1, 1, 0}, {1, 1, 1}};
+    const int   w_num = sizeof(cumsum) / sizeof(cumsum[0]);
+    
+    cv::Mat dst(disp.rows, disp.cols, CV_8UC3);
+    auto p_dst = dst.ptr<uint8_t>(0);
+    for (int row = 0; row < disp.rows; row++)
+    {
+        for (int col = 0; col < disp.cols; col++)
+        {
+            float cur_disp = disp.at<float>(row, col) / max_disp;
+            int index = 1;
+            while (index < w_num && cur_disp > cumsum[index])
+                index++;
+            index--;
+            float w = 1.0 - (cur_disp - cumsum[index]) * weights[index];
+            p_dst[0] = (uint8_t)((w * w_map[index][0] + (1.0 - w) * w_map[index + 1][0]) * 255.0);
+            p_dst[1] = (uint8_t)((w * w_map[index][1] + (1.0 - w) * w_map[index + 1][1]) * 255.0);
+            p_dst[2] = (uint8_t)((w * w_map[index][2] + (1.0 - w) * w_map[index + 1][2]) * 255.0);
+            p_dst += 3;
+        }
+    }
+    return dst;
+}
+
+sensor_msgs::Image::ConstPtr computeOutputs(IExecutionContext *context, size_t h, size_t w, bool viz,
+                                            int idx_l, int idx_r, int idx_out, void** buffers)
 {
     if (s_cur_img_l == nullptr || s_cur_img_r == nullptr)
         return nullptr;
 
-    size_t h = 257;
-    size_t w = 513;
+    size_t c = 3;
     sensor_msgs::ImageConstPtr imgs[] {s_cur_img_l,  s_cur_img_r};
     void* bufs[] {buffers[idx_l], buffers[idx_r]};
     for (int i = 0; i < 2; i++)
@@ -71,16 +101,14 @@ sensor_msgs::Image::ConstPtr computeOutputs(IExecutionContext *context, int idx_
         auto img      = *(imgs[i]);
         auto img_h    = cv::Mat((int)img.height, (int)img.width, img.encoding == "bgra8" ? CV_8UC4 : CV_8UC3, (void*)img.data.data());
         auto final_h_ = preprocessImage(img_h, w, h, img.encoding);
-        CHECK(cudaMemcpy(bufs[i], final_h_.data, 3 * h * w * sizeof(float), cudaMemcpyHostToDevice));
+        CHECK(cudaMemcpy(bufs[i], final_h_.data, c * h * w * sizeof(float), cudaMemcpyHostToDevice));
     }
 
     auto err = context->execute(1, buffers);
     assert(err);
-    auto output_fp32 = cv::Mat((int)h, (int)w, CV_32FC1);
-    CHECK(cudaMemcpy(output_fp32.data, buffers[idx_out], h * w * sizeof(float), cudaMemcpyDeviceToHost));
-    output_fp32 *= w;
-    cv::Mat output;
-    output_fp32.convertTo(output, CV_8UC1);
+    auto output = cv::Mat((int)h, (int)w, CV_32FC1);
+    CHECK(cudaMemcpy(output.data, buffers[idx_out], h * w * sizeof(float), cudaMemcpyDeviceToHost));
+    output *= w;
 
     //std::vector<float> output(h * w);
     //CHECK(cudaMemcpy(output.data(), buffers[idx_out], output.size() * sizeof(float), cudaMemcpyDeviceToHost));
@@ -91,20 +119,63 @@ sensor_msgs::Image::ConstPtr computeOutputs(IExecutionContext *context, int idx_
     out_msg->header.stamp.sec  = img_l.header.stamp.sec;
     out_msg->header.stamp.nsec = img_l.header.stamp.nsec;
     out_msg->header.frame_id   = img_l.header.frame_id;
-    out_msg->encoding = "mono8";
+    out_msg->encoding = "32FC1";
     out_msg->width    = w;
     out_msg->height   = h;
-    out_msg->step     = out_msg->width * sizeof(uint8_t);
+    out_msg->step     = out_msg->width * sizeof(float);
     size_t count      = out_msg->step * out_msg->height;
     auto ptr          = reinterpret_cast<const unsigned char*>(output.data);
     out_msg->data     = std::vector<unsigned char>(ptr, ptr + count);
     // ROS_INFO("computeOutputs: %u, %u, %s", out_msg->width, out_msg->height, out_msg->encoding.c_str());
 
+    auto viz_msg = boost::make_shared<sensor_msgs::Image>();
+    if (viz)
+    {
+        // Set stamp and frame id to the same value as source image so we can synchronize with other nodes if needed.
+        auto img_l = *s_cur_img_l;
+        viz_msg->header.stamp.sec  = img_l.header.stamp.sec;
+        viz_msg->header.stamp.nsec = img_l.header.stamp.nsec;
+        viz_msg->header.frame_id   = img_l.header.frame_id;
+        viz_msg->encoding = "rgb8";
+        viz_msg->width    = 2 * w;
+        viz_msg->height   = 2 * h;
+        viz_msg->step     = c * viz_msg->width;
+        size_t count      = viz_msg->step * viz_msg->height;
+        viz_msg->data.resize(count);
+
+        auto dst = cv::Mat(viz_msg->height, viz_msg->width, CV_8UC3, viz_msg->data.data());
+
+        std::vector<float> buf(c * h * w);
+        for (int i = 0; i < 2; i++)
+        {
+            CHECK(cudaMemcpy(buf.data(), bufs[i], c * h * w * sizeof(float), cudaMemcpyDeviceToHost));
+            auto cur = cv::Mat(h, w, CV_32FC3, buf.data());
+            cur *= 256;
+            cur.convertTo(cur, CV_8UC3);
+            cur = cur.reshape(1, 3).t();
+            cur.reshape(3, h).copyTo(dst(cv::Rect(w * i, 0, w, h)));
+        }
+
+        // REVIEW alexeyk: hardcode max disp for now.
+        float max_disp = 96;
+        auto disp_color = dispToColor(output, max_disp);
+        disp_color.copyTo(dst(cv::Rect(w, h, w, h)));
+
+        // Brighten up according to max disp.
+        output *= 255.0 / 96;
+        output.convertTo(output, CV_8UC1);
+        cv::cvtColor(output, output, CV_GRAY2RGB);
+        output.copyTo(dst(cv::Rect(0, h, w, h)));
+
+        //ROS_INFO("%u, %u", output.channels(), dst.channels());
+    }
+    // ROS_INFO("computeOutputs: %u, %u, %s", viz_msg->width, viz_msg->height, viz_msg->encoding.c_str());
+
     // Set to null to mark as completed.
     s_cur_img_l = nullptr;
     s_cur_img_r = nullptr;
 
-    return out_msg;
+    return viz_msg;
 }
 
 //void imageCallback(const sensor_msgs::Image::ConstPtr& msg_l, const sensor_msgs::Image::ConstPtr& msg_r)
@@ -127,6 +198,35 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg_l, const sensor_msgs::I
 
     s_cur_img_l = msg_l;
     s_cur_img_r = msg_r;
+}
+
+void parseModelType(const std::string& src, int& h, int& w)
+{
+    if (boost::iequals(src, "nvsmall"))
+    {
+        h = 321;
+        w = 1025;
+    }
+    else if (boost::iequals(src, "nvtiny"))
+    {
+        h = 161;
+        w = 513;
+    }
+    else if (boost::iequals(src, "resnet18"))
+    {
+        h = 321;
+        w = 1025;
+    }
+    else if (boost::iequals(src, "resnet18_2D"))
+    {
+        h = 257;
+        w = 513;
+    }
+    else
+    {
+        ROS_FATAL("Not supported model type: %s. Supported types: nvsmall, nvtiny, resnet18, resnet18_2D", src.c_str());
+        ros::shutdown();
+    }
 }
 
 DataType parseDataType(const std::string& src)
@@ -205,6 +305,7 @@ int main(int argc, char **argv)
 
     std::string camera_topic_l;
     std::string camera_topic_r;
+    std::string viz_topic;
     std::string model_type;
     std::string model_path;
     std::string data_type_s;
@@ -215,33 +316,32 @@ int main(int argc, char **argv)
 
     nh.param<std::string>("camera_topic_left",  camera_topic_l, "/zed/left/image_rect_color");
     nh.param<std::string>("camera_topic_right", camera_topic_r, "/zed/right/image_rect_color");
-    nh.param<std::string>("model_type",    model_type, "resnet18_2D");
-    nh.param<std::string>("model_path",    model_path, "");
-    nh.param<std::string>("data_type",     data_type_s, "fp16");
+    nh.param<std::string>("viz_topic",  viz_topic, "");
+    nh.param<std::string>("model_type", model_type, "resnet18_2D");
+    nh.param<std::string>("model_path", model_path, "");
+    nh.param<std::string>("data_type",  data_type_s, "fp16");
 
     nh.param("camera_queue_size", camera_queue_size, 2);
     nh.param("dnn_queue_size",    dnn_queue_size,    2);
     nh.param("max_rate_hz",       max_rate_hz, 30.0f);
     nh.param("debug_mode",        debug_mode,  false);
 
-    if (model_type != "resnet18_2D")
-    {
-        ROS_FATAL("Not supported model type: %s. Supported types: resnet18_2D", model_type.c_str());
-        ros::shutdown();
-    }
+    int c = 3;
+    int h = 0;
+    int w = 0;
+
+    sd::parseModelType(model_type, h, w);
 
     ROS_INFO("Camera L: %s", camera_topic_l.c_str());
     ROS_INFO("Camera R: %s", camera_topic_r.c_str());
+    ROS_INFO("Viz     : %s", viz_topic.c_str());
+    ROS_INFO("Model T : %s", model_type.c_str());
     ROS_INFO("Model   : %s", model_path.c_str());
     ROS_INFO("DType   : %s", data_type_s.c_str());
     ROS_INFO("Cam Q   : %d", camera_queue_size);
     ROS_INFO("DNN Q   : %d", dnn_queue_size);
     ROS_INFO("Rate    : %.1f", max_rate_hz);
     ROS_INFO("Debug   : %s", debug_mode ? "yes" : "no");
-
-    const int c = 3;
-    const int h = 257;
-    const int w = 513;
 
     auto data_type = sd::parseDataType(data_type_s);
 
@@ -279,39 +379,18 @@ int main(int argc, char **argv)
         // Create builder and network.
         IBuilder* builder = createInferBuilder(gLogger);
 
-        // TRT v3 supports FP16 only for the weights (e.g. convolutions) but not the data so use float data type.
+        // For now only ResNet18_2D has proper support for FP16.
         INetworkDefinition* network = nullptr;
         if (model_type == "nvsmall")
-        {
-            if (w == 1025)
-                network = createNVSmall1025x321Network(*builder, *plugin_container, DimsCHW { c, h, w }, weights, DataType::kFLOAT, gLogger);
-            else if (w == 513)
-                network = createNVTiny513x161Network(  *builder, *plugin_container, DimsCHW { c, h, w }, weights, DataType::kFLOAT, gLogger);
-            else
-                assert(false);
-        }
+            network = createNVSmall1025x321Network(    *builder, *plugin_container, DimsCHW { c, h, w }, weights, DataType::kFLOAT, gLogger);
+        else if (model_type == "nvtiny")
+            network = createNVTiny513x161Network(      *builder, *plugin_container, DimsCHW { c, h, w }, weights, DataType::kFLOAT, gLogger);
         else if (model_type == "resnet18")
-        {
-            if (w == 1025)
-                network = createResNet18_1025x321Network(*builder, *plugin_container, DimsCHW { c, h, w }, weights, DataType::kFLOAT, gLogger);
-            else
-            {
-                ROS_FATAL("ResNet-18 model supports only 1025x321 input image.");
-                ros::shutdown();
-            }
-        }
+            network = createResNet18_1025x321Network(  *builder, *plugin_container, DimsCHW { c, h, w }, weights, DataType::kFLOAT, gLogger);
         else if (model_type == "resnet18_2D")
-        {
-            if (w == 513)
-                network = createResNet18_2D_513x257Network(*builder, *plugin_container, DimsCHW { c, h, w }, weights, data_type, gLogger);
-            else
-            {
-                ROS_FATAL("ResNet18_2D model supports only 513x257 input image.");
-                ros::shutdown();
-            }
-        }
+            network = createResNet18_2D_513x257Network(*builder, *plugin_container, DimsCHW { c, h, w }, weights, data_type, gLogger);
         else
-            assert(false);
+            ROS_ASSERT(false);
 
         builder->setMaxBatchSize(1);
         size_t workspace_bytes = 1024 * 1024 * 1024;
@@ -356,6 +435,9 @@ int main(int argc, char **argv)
     sync.registerCallback(boost::bind(&sd::imageCallback, _1, _2));
 
     auto output_pub = nh.advertise<sensor_msgs::Image>("network/output", dnn_queue_size);
+    ros::Publisher viz_pub;
+    if (!viz_topic.empty())
+        viz_pub = nh.advertise<sensor_msgs::Image>("network/" + viz_topic, dnn_queue_size);
 
     size_t img_size = c * h * w;
     CHECK(cudaMalloc(&buffers[in_idx_left],  img_size * sizeof(float)));
@@ -366,7 +448,8 @@ int main(int argc, char **argv)
     ros::spinOnce();
     while (ros::ok())
     {
-        auto out_msg = sd::computeOutputs(context, in_idx_left, in_idx_right, out_idx, buffers);
+        auto out_msg = sd::computeOutputs(context, h, w, !viz_topic.empty(),
+                                          in_idx_left, in_idx_right, out_idx, buffers);
         if (out_msg != nullptr)
             output_pub.publish(out_msg);
         ros::spinOnce();
