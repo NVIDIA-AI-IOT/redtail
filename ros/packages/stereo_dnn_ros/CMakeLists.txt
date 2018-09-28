@@ -53,19 +53,22 @@ set(
 list(APPEND CUDA_NVCC_FLAGS -gencode arch=compute_53,code=compute_53)
 list(APPEND CUDA_NVCC_FLAGS -gencode arch=compute_62,code=sm_62)
 
+set(stereo_dnn_lib_dir    ${CMAKE_SOURCE_DIR}/stereoDNN)
+set(stereo_dnn_sample_dir ${stereo_dnn_lib_dir}/sample_app)
+
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 # include_directories(include)
 include_directories(
   #include
   ${catkin_INCLUDE_DIRS}
-  ../../../stereoDNN/lib
-  ../../../stereoDNN/sample_app
+  ${stereo_dnn_lib_dir}/lib
+  ${stereo_dnn_sample_dir}
 )
 
 ## Locations of library files.
 link_directories(
-  ../../../stereoDNN/build/lib
+  ${stereo_dnn_lib_dir}/build/lib
 )
 
 ## Add cmake target dependencies of the library

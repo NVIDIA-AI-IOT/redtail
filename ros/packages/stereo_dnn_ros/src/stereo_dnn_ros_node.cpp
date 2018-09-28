@@ -57,37 +57,7 @@ cv::Mat preprocessImage(cv::Mat img, int dst_img_w, int dst_img_h, ConstStr& enc
     return img.reshape(1, dst_img_w * dst_img_h).t();
 }
 
-cv::Mat dispToColor(cv::Mat& disp, float max_disp)
-{
-    // Weights and cumsum are precomputed from Python code.
-    const float weights[]{8.77192974, 5.40540552, 8.77192974, 5.74712658, 8.77192974, 5.40540552, 8.77192974, 0};
-    const float cumsum[] {0,          0.114,      0.299,      0.413,      0.587,      0.70100003, 0.88600004, 1};
-    const float w_map[][3]{{0, 0, 0}, {0, 0, 1}, {1, 0, 0}, {1, 0, 1},
-                           {0, 1, 0}, {0, 1, 1}, {1, 1, 0}, {1, 1, 1}};
-    const int   w_num = sizeof(cumsum) / sizeof(cumsum[0]);
-    
-    cv::Mat dst(disp.rows, disp.cols, CV_8UC3);
-    auto p_dst = dst.ptr<uint8_t>(0);
-    for (int row = 0; row < disp.rows; row++)
-    {
-        for (int col = 0; col < disp.cols; col++)
-        {
-            float cur_disp = disp.at<float>(row, col) / max_disp;
-            int index = 1;
-            while (index < w_num && cur_disp > cumsum[index])
-                index++;
-            index--;
-            float w = 1.0 - (cur_disp - cumsum[index]) * weights[index];
-            p_dst[0] = (uint8_t)((w * w_map[index][0] + (1.0 - w) * w_map[index + 1][0]) * 255.0);
-            p_dst[1] = (uint8_t)((w * w_map[index][1] + (1.0 - w) * w_map[index + 1][1]) * 255.0);
-            p_dst[2] = (uint8_t)((w * w_map[index][2] + (1.0 - w) * w_map[index + 1][2]) * 255.0);
-            p_dst += 3;
-        }
-    }
-    return dst;
-}
-
-sensor_msgs::Image::ConstPtr computeOutputs(IExecutionContext *context, size_t h, size_t w, bool viz,
+sensor_msgs::Image::ConstPtr computeOutputs(IExecutionContext *context, size_t h, size_t w,
                                             int idx_l, int idx_r, int idx_out, void** buffers)
 {
     if (s_cur_img_l == nullptr || s_cur_img_r == nullptr)
@@ -110,9 +80,6 @@ sensor_msgs::Image::ConstPtr computeOutputs(IExecutionContext *context, size_t h
     CHECK(cudaMemcpy(output.data, buffers[idx_out], h * w * sizeof(float), cudaMemcpyDeviceToHost));
     output *= w;
 
-    //std::vector<float> output(h * w);
-    //CHECK(cudaMemcpy(output.data(), buffers[idx_out], output.size() * sizeof(float), cudaMemcpyDeviceToHost));
-
     auto out_msg = boost::make_shared<sensor_msgs::Image>();
     // Set stamp and frame id to the same value as source image so we can synchronize with other nodes if needed.
     auto img_l = *s_cur_img_l;
@@ -128,54 +95,11 @@ sensor_msgs::Image::ConstPtr computeOutputs(IExecutionContext *context, size_t h
     out_msg->data     = std::vector<unsigned char>(ptr, ptr + count);
     // ROS_INFO("computeOutputs: %u, %u, %s", out_msg->width, out_msg->height, out_msg->encoding.c_str());
 
-    auto viz_msg = boost::make_shared<sensor_msgs::Image>();
-    if (viz)
-    {
-        // Set stamp and frame id to the same value as source image so we can synchronize with other nodes if needed.
-        auto img_l = *s_cur_img_l;
-        viz_msg->header.stamp.sec  = img_l.header.stamp.sec;
-        viz_msg->header.stamp.nsec = img_l.header.stamp.nsec;
-        viz_msg->header.frame_id   = img_l.header.frame_id;
-        viz_msg->encoding = "rgb8";
-        viz_msg->width    = 2 * w;
-        viz_msg->height   = 2 * h;
-        viz_msg->step     = c * viz_msg->width;
-        size_t count      = viz_msg->step * viz_msg->height;
-        viz_msg->data.resize(count);
-
-        auto dst = cv::Mat(viz_msg->height, viz_msg->width, CV_8UC3, viz_msg->data.data());
-
-        std::vector<float> buf(c * h * w);
-        for (int i = 0; i < 2; i++)
-        {
-            CHECK(cudaMemcpy(buf.data(), bufs[i], c * h * w * sizeof(float), cudaMemcpyDeviceToHost));
-            auto cur = cv::Mat(h, w, CV_32FC3, buf.data());
-            cur *= 256;
-            cur.convertTo(cur, CV_8UC3);
-            cur = cur.reshape(1, 3).t();
-            cur.reshape(3, h).copyTo(dst(cv::Rect(w * i, 0, w, h)));
-        }
-
-        // REVIEW alexeyk: hardcode max disp for now.
-        float max_disp = 96;
-        auto disp_color = dispToColor(output, max_disp);
-        disp_color.copyTo(dst(cv::Rect(w, h, w, h)));
-
-        // Brighten up according to max disp.
-        output *= 255.0 / 96;
-        output.convertTo(output, CV_8UC1);
-        cv::cvtColor(output, output, CV_GRAY2RGB);
-        output.copyTo(dst(cv::Rect(0, h, w, h)));
-
-        //ROS_INFO("%u, %u", output.channels(), dst.channels());
-    }
-    // ROS_INFO("computeOutputs: %u, %u, %s", viz_msg->width, viz_msg->height, viz_msg->encoding.c_str());
-
     // Set to null to mark as completed.
     s_cur_img_l = nullptr;
     s_cur_img_r = nullptr;
 
-    return viz_msg;
+    return out_msg;
 }
 
 //void imageCallback(const sensor_msgs::Image::ConstPtr& msg_l, const sensor_msgs::Image::ConstPtr& msg_r)
@@ -272,6 +196,7 @@ std::unordered_map<std::string, Weights> readWeights(const std::string& filename
 } // stereo_dnn_ros
 
 namespace sd = stereo_dnn_ros;
+namespace mf = message_filters;
 
 class Logger : public ILogger
 {
@@ -305,7 +230,6 @@ int main(int argc, char **argv)
 
     std::string camera_topic_l;
     std::string camera_topic_r;
-    std::string viz_topic;
     std::string model_type;
     std::string model_path;
     std::string data_type_s;
@@ -316,7 +240,6 @@ int main(int argc, char **argv)
 
     nh.param<std::string>("camera_topic_left",  camera_topic_l, "/zed/left/image_rect_color");
     nh.param<std::string>("camera_topic_right", camera_topic_r, "/zed/right/image_rect_color");
-    nh.param<std::string>("viz_topic",  viz_topic, "");
     nh.param<std::string>("model_type", model_type, "resnet18_2D");
     nh.param<std::string>("model_path", model_path, "");
     nh.param<std::string>("data_type",  data_type_s, "fp16");
@@ -334,7 +257,6 @@ int main(int argc, char **argv)
 
     ROS_INFO("Camera L: %s", camera_topic_l.c_str());
     ROS_INFO("Camera R: %s", camera_topic_r.c_str());
-    ROS_INFO("Viz     : %s", viz_topic.c_str());
     ROS_INFO("Model T : %s", model_type.c_str());
     ROS_INFO("Model   : %s", model_path.c_str());
     ROS_INFO("DType   : %s", data_type_s.c_str());
@@ -426,18 +348,15 @@ int main(int argc, char **argv)
     // if (debug_mode_)
     //     net_.showProfile(true);
 
-    message_filters::Subscriber<sensor_msgs::Image> image_sub_l(nh, camera_topic_l, camera_queue_size);
-    message_filters::Subscriber<sensor_msgs::Image> image_sub_r(nh, camera_topic_r, camera_queue_size);
-    //, &stereo_dnn_ros::imageCallback
-    using MySyncPolicy = message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image>;
-    message_filters::Synchronizer<MySyncPolicy> sync(MySyncPolicy(2), image_sub_l, image_sub_r);
-    //message_filters::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::Image> sync(image_sub_l, image_sub_r, 10);
+    mf::Subscriber<sensor_msgs::Image> image_sub_l(nh, camera_topic_l, camera_queue_size);
+    mf::Subscriber<sensor_msgs::Image> image_sub_r(nh, camera_topic_r, camera_queue_size);
+
+    using MySyncPolicy = mf::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image>;
+    mf::Synchronizer<MySyncPolicy> sync(MySyncPolicy(camera_queue_size), image_sub_l, image_sub_r);
+    //mf::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::Image> sync(image_sub_l, image_sub_r, 10);
     sync.registerCallback(boost::bind(&sd::imageCallback, _1, _2));
 
     auto output_pub = nh.advertise<sensor_msgs::Image>("network/output", dnn_queue_size);
-    ros::Publisher viz_pub;
-    if (!viz_topic.empty())
-        viz_pub = nh.advertise<sensor_msgs::Image>("network/" + viz_topic, dnn_queue_size);
 
     size_t img_size = c * h * w;
     CHECK(cudaMalloc(&buffers[in_idx_left],  img_size * sizeof(float)));
@@ -448,8 +367,7 @@ int main(int argc, char **argv)
     ros::spinOnce();
     while (ros::ok())
     {
-        auto out_msg = sd::computeOutputs(context, h, w, !viz_topic.empty(),
-                                          in_idx_left, in_idx_right, out_idx, buffers);
+        auto out_msg = sd::computeOutputs(context, h, w, in_idx_left, in_idx_right, out_idx, buffers);
         if (out_msg != nullptr)
             output_pub.publish(out_msg);
         ros::spinOnce();
