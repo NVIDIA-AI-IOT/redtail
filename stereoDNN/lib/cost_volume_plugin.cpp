@@ -48,8 +48,6 @@ public:
         assert((ss >> std::ws).eof());
     }
 
-    CostVolumePlugin(CostVolumePlugin&&) = delete;
-
     bool supportsFormat(DataType type, PluginFormat format) const override
     {
         // See EluPlugin::supportsFormat for the notes.
@@ -111,6 +109,26 @@ public:
 
     void terminate() override
     {
+    }
+
+    const char* getPluginType() const override
+    {
+        return name_.c_str();
+    }
+
+    const char* getPluginVersion() const override
+    {
+        return "default";
+    }
+
+    void destroy() override
+    {
+        delete this;
+    }
+
+    virtual IPluginExt* clone() const override
+    {
+        return new CostVolumePlugin(*this);
     }
 
     size_t getWorkspaceSize(int maxBatchSize) const

@@ -40,7 +40,7 @@ public:
         assert((ss >> std::ws).eof());
     }
 
-    EluPlugin(EluPlugin&&) = delete;
+    // EluPlugin(EluPlugin&&) = delete;
 
     bool supportsFormat(DataType type, PluginFormat format) const override
     {
@@ -72,6 +72,7 @@ public:
         assert(nbInputs == 1);
         assert(nbOutputs == 1);
         // Sanity check.
+        // printf ("\nin_dims_ %s, inputDims %s\n", DimsUtils::toString(in_dims_).c_str(), DimsUtils::toString(inputDims[0]).c_str());
         assert(DimsUtils::areEqual(in_dims_, inputDims[0]));
         assert(DimsUtils::areEqual(in_dims_, outputDims[0]));
         assert(type == data_type_);
@@ -115,6 +116,25 @@ public:
         assert(!isValid());
     }
 
+    const char* getPluginType() const override
+    {
+        return name_.c_str();
+    }
+
+    const char* getPluginVersion() const override
+    {
+        return "default";
+    }
+
+    void destroy() override
+    {
+        delete this;
+    }
+
+    virtual IPluginExt* clone() const override
+    {
+        return new EluPlugin(*this);
+    }
     size_t getWorkspaceSize(int maxBatchSize) const
     {
         return 0;

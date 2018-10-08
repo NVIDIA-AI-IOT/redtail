@@ -46,8 +46,6 @@ public:
         createDescriptors();
     }
 
-    SoftargmaxPlugin(SoftargmaxPlugin&&) = delete;
-
     bool supportsFormat(DataType type, PluginFormat format) const override
     {
         return (type == data_type_) && (format == PluginFormat::kNCHW);
@@ -156,6 +154,26 @@ public:
         sum_desc_  = nullptr;
 
         assert(!isValid());
+    }
+
+        const char* getPluginType() const override
+    {
+        return name_.c_str();
+    }
+
+    const char* getPluginVersion() const override
+    {
+        return "default";
+    }
+
+    void destroy() override
+    {
+        delete this;
+    }
+
+    virtual IPluginExt* clone() const override
+    {
+        return static_cast<IPluginExt*>(new SoftargmaxPlugin(*this));
     }
 
     size_t getWorkspaceSize(int maxBatchSize) const

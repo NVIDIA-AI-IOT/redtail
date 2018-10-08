@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.5)
 set(PROJECT_NAME nvstereo_sample_app)
 project(${PROJECT_NAME})
 
-find_package(CUDA 9.0 REQUIRED)
+find_package(CUDA 10.0 REQUIRED)
 find_package(OpenCV 3.3.1 REQUIRED)
 
 include_directories(${CUDA_INCLUDE_DIRS})
