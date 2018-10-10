@@ -116,6 +116,7 @@ public:
         assert(!isValid());
     }
 
+#ifdef TENSORRT_5
     const char* getPluginType() const override
     {
         return name_.c_str();
@@ -135,6 +136,8 @@ public:
     {
         return new EluPlugin(*this);
     }
+#endif
+
     size_t getWorkspaceSize(int maxBatchSize) const
     {
         return 0;

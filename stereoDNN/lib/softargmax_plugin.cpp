@@ -156,7 +156,8 @@ public:
         assert(!isValid());
     }
 
-        const char* getPluginType() const override
+#ifdef TENSORRT_5
+    const char* getPluginType() const override
     {
         return name_.c_str();
     }
@@ -175,6 +176,7 @@ public:
     {
         return static_cast<IPluginExt*>(new SoftargmaxPlugin(*this));
     }
+#endif
 
     size_t getWorkspaceSize(int maxBatchSize) const
     {

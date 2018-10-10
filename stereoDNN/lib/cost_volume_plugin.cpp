@@ -111,6 +111,7 @@ public:
     {
     }
 
+#ifdef TENSORRT_5
     const char* getPluginType() const override
     {
         return name_.c_str();
@@ -130,6 +131,7 @@ public:
     {
         return new CostVolumePlugin(*this);
     }
+#endif
 
     size_t getWorkspaceSize(int maxBatchSize) const
     {
