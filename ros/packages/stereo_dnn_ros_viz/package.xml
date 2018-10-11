@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<package>
+  <name>stereo_dnn_ros_viz</name>
+  <version>0.1.0</version>
+  <description>ROS node for visualizing Stereo DNN output.</description>
+  <maintainer email="akamenev@nvidia.com">Alexey Kamenev</maintainer>
+  <author email="akamenev@nvidia.com">Alexey Kamenev</author> 
+  <license>BSD</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <build_depend>roscpp</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>message_filters</build_depend>
+  
+  <run_depend>roscpp</run_depend>
+  <run_depend>std_msgs</run_depend>
+  <run_depend>sensor_msgs</run_depend>
+  <run_depend>message_filters</run_depend>
+
+  <export>
+  </export>
+</package>

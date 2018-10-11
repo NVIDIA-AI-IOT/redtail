@@ -1,0 +1,21 @@
+<launch>
+    <!--
+    Debug file that uses ZED ROS node.
+    -->
+    <arg name="camera_model" default="1" />
+
+    <!-- Start ZED ROS node. -->
+    <include file="$(find zed_wrapper)/launch/zed.launch">
+        <arg name="camera_model" value="$(arg camera_model)" /> <!-- 0=ZED, 1=ZEDM-->
+        <arg name="resolution"   value="3" />
+    </include>
+
+    <node pkg="stereo_dnn_ros" type="stereo_dnn_ros_node" name="stereo_dnn_ros" output="screen">
+        <param name="camera_topic_left"  value="/zed/left/image_rect_color" />
+        <param name="camera_topic_right" value="/zed/right/image_rect_color" />
+        <param name="model_path"         value="/home/nvidia/redtail/stereoDNN/models/ResNet-18_2D/TensorRT/trt_weights_fp16.bin" />
+        <param name="data_type"          value="fp16" />
+        <param name="camera_queue_size"  value="10" />
+    </node>
+
+</launch>

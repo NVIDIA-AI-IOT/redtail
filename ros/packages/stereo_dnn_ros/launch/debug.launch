@@ -1,0 +1,28 @@
+<launch>
+    <!-- 
+    Debug file that uses image_pub node.
+    -->
+    <arg name="pub_rate" default="1" />
+
+    <node pkg="image_pub" type="image_pub_node" name="image_pub_left" output="screen">
+        <param name="camera_topic"  value="/zed/left/image_rect_color" />
+        <param name="img_path"      value="/data/src/redtail/ros/packages/caffe_ros/tests/data/rot_c.jpg" />
+        <param name="pub_rate"      value="$(arg pub_rate)" />
+        <param name="repeat"        value="true" />
+    </node>
+
+    <node pkg="image_pub" type="image_pub_node" name="image_pub_right" output="screen">
+        <param name="camera_topic"  value="/zed/right/image_rect_color" />
+        <param name="img_path"      value="/data/src/redtail/ros/packages/caffe_ros/tests/data/tran_r.jpg" />
+        <param name="pub_rate"      value="$(arg pub_rate)" />
+        <param name="repeat"        value="true" />
+    </node>
+
+    <node pkg="stereo_dnn_ros" type="stereo_dnn_ros_node" name="stereo_dnn_ros" output="screen">
+        <param name="camera_topic_left"  value="/zed/left/image_rect_color" />
+        <param name="camera_topic_right" value="/zed/right/image_rect_color" />
+        <param name="model_path"         value="/data/src/redtail/stereoDNN/models/ResNet-18_2D/TensorRT/trt_weights.bin" />
+        <param name="data_type"          value="fp32" />
+    </node>
+
+</launch>
