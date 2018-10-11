@@ -22,6 +22,9 @@ The project also contains [Stereo DNN](../master/stereoDNN/) models and runtime 
 * [Demo video showing TrailNet generalization to ground vehicles and other environments](https://youtu.be/ZKF5N8xUxfw)
 
 # News
+* **2018-10-10**: Stereo DNN ROS node and fixes.
+  * Added Stereo DNN ROS node and visualizer node.
+  * Fixed issue with nvidia-docker v2.
 * **2018-09-19**: Updates to Stereo DNN.
   * Moved to TensorRT 4.0
   * Enabled FP16 support in `ResNet18 2D` model, resulting in 2x performance increase (20fps on Jetson TX2).
