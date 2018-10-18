@@ -1,4 +1,4 @@
-FROM nvidia/cuda:9.0-cudnn7-devel-ubuntu16.04
+FROM nvidia/cudagl:9.0-devel-ubuntu16.04
 
 # Copyright (c) 2017, NVIDIA CORPORATION. All rights reserved.
 # Full license terms provided in LICENSE.md file.
@@ -13,9 +13,8 @@ WORKDIR ${HOME}
 RUN apt-get update && apt-get -y  --no-install-recommends install software-properties-common \
     && add-apt-repository ppa:ubuntu-toolchain-r/test
 
-# REVIEW alexeyk: this fixes the problem with TF 1.5 built against cuDNN 7.0 while recent version of the image has 7.1.
+# REVIEW alexeyk: libcudnn7=7.0.5.15 fixes the problem with TF 1.5 built against cuDNN 7.0 while recent version of the image has 7.1.
 # https://github.com/tensorflow/tensorflow/issues/17566
-RUN apt-get update && apt-get install -y --allow-downgrades --no-install-recommends libcudnn7=7.0.5.15-1+cuda9.0 libcudnn7-dev=7.0.5.15-1+cuda9.0
 
 RUN apt-get update && apt-get -y --no-install-recommends install \
         curl \
@@ -30,6 +29,7 @@ RUN apt-get update && apt-get -y --no-install-recommends install \
         libasound2 \
         libx11-xcb-dev \
         libxss1 \
+        libcudnn7=7.0.5.15-1+cuda9.0 libcudnn7-dev=7.0.5.15-1+cuda9.0 \
         mc \
         nano \
         net-tools \
