@@ -54,7 +54,7 @@ public:
         // Other combinations are not currently implemented.
         // REVIEW alexeyk: kHALF && kNCHW is only for testing on the host as TRT fails with assert when using kHALF && kNC2HW2.
         bool supported_formats = (type == DataType::kFLOAT && format == PluginFormat::kNCHW)  ||
-                                 //(type == DataType::kHALF  && format == PluginFormat::kNCHW)  ||
+                                 (type == DataType::kHALF  && format == PluginFormat::kNCHW)  ||
                                  (type == DataType::kHALF  && format == PluginFormat::kNC2HW2);
         return (type == data_type_) && supported_formats;
     }
