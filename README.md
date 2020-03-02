@@ -22,6 +22,14 @@ The project also contains [Stereo DNN](../master/stereoDNN/) models and runtime 
 * [Demo video showing TrailNet generalization to ground vehicles and other environments](https://youtu.be/ZKF5N8xUxfw)
 
 # News
+* **2020-02-03**: Alternative implementations.
+    **redtail** is no longer being developed, but fortunately our community stepped in and continued developing the project.
+    We thank our users for the interest in **redtail**, questions and feedback!
+
+    Some alternative implementations are listed below.
+  
+  * @mtbsteve: https://github.com/mtbsteve/redtail
+
 * **2018-10-10**: Stereo DNN ROS node and fixes.
   * Added Stereo DNN ROS node and visualizer node.
   * Fixed issue with nvidia-docker v2.
