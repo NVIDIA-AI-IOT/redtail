@@ -61,7 +61,8 @@ RUN apt-get update && apt-get -y --no-install-recommends install \
     && apt-get -y autoremove \
     && apt-get clean autoclean \
     # pip
-    && pip install setuptools wheel \
+    && pip install pip --upgrade \
+    && pip install 'setuptools<4.3' wheel \
     && pip install 'matplotlib==2.2.2' --force-reinstall \
     # coveralls code coverage reporting
     && pip install cpp-coveralls \
@@ -70,7 +71,7 @@ RUN apt-get update && apt-get -y --no-install-recommends install \
     # cleanup
     && rm -rf /var/lib/apt/lists/{apt,dpkg,cache,log} /tmp/* /var/tmp/* \
     # Add Fast-RTPS
-    && cd /opt && curl http://www.eprosima.com/index.php/component/ars/repository/eprosima-fast-rtps/eprosima-fast-rtps-1-5-0/eprosima_fastrtps-1-5-0-linux-tar-gz?format=raw | tar xz eProsima_FastRTPS-1.5.0-Linux/share/fastrtps/fastrtpsgen.jar eProsima_FastRTPS-1.5.0-Linux/bin/fastrtpsgen \
+    && cd /opt && curl https://www.eprosima.com/index.php/component/ars/repository/eprosima-fast-dds/eprosima-fast-rtps-1-5-0/eprosima_fastrtps-1-5-0-linux-tar-gz?format=raw | tar xz eProsima_FastRTPS-1.5.0-Linux/share/fastrtps/fastrtpsgen.jar eProsima_FastRTPS-1.5.0-Linux/bin/fastrtpsgen \
     && ln -s /opt/eProsima_FastRTPS-1.5.0-Linux/bin/fastrtpsgen /usr/local/bin/fastrtpsgen \
     && mkdir -p /usr/local/share/fastrtps && ln -s /opt/eProsima_FastRTPS-1.5.0-Linux/share/fastrtps/fastrtpsgen.jar /usr/local/share/fastrtps/fastrtpsgen.jar
 
@@ -113,7 +114,7 @@ RUN mkdir ./px4/ && cd ./px4/                                        \
 
 # ROS Kinetic
 WORKDIR ${HOME}
-RUN apt-key adv --keyserver hkp://ha.pool.sks-keyservers.net:80 --recv-key 421C365BD9FF1F717815A3895523BAEEB01FA116 \
+RUN apt-key adv --keyserver 'hkp://keyserver.ubuntu.com:80' --recv-key C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654 \
     && sh -c 'echo "deb http://packages.ros.org/ros/ubuntu xenial main" > /etc/apt/sources.list.d/ros-latest.list' \
     && sh -c 'echo "deb http://packages.ros.org/ros-shadow-fixed/ubuntu/ xenial main" > /etc/apt/sources.list.d/ros-shadow.list' \
     && apt-get update && apt-get -y --no-install-recommends install \
